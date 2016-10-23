@@ -1,2 +1,2 @@
-# dotfiles
+# Eliz’s dotfiles
 My dotfiles
