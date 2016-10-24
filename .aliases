@@ -16,7 +16,6 @@ alias p="cd ~/projects"
 alias g="git"
 alias h="history"
 alias j="jobs"
-alias a="printf '%b\n' \"$(cat .apps.md)\""
 
 alias doc="cd ~/Documents"
 alias server="cd /Server"

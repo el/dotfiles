@@ -10,6 +10,10 @@ function cdf() { # short for `cdfinder`
 	cd "$(osascript -e 'tell app "Finder" to POSIX path of (insertion location as alias)')";
 }
 
+function a() {
+    printf '%b\n' "$(cat ~/.apps.md | sed 's/\* /\\e[1;34m/g' | sed 's/\*\-/\\e[1;30m\-/g')"
+}
+
 function brewlist() {
     if tput setaf 1 &> /dev/null; then
         reset=$(tput sgr0);
