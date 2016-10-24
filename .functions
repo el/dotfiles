@@ -6,7 +6,7 @@ function mkd() {
 }
 
 function a() {
-    printf '%b\n' "$(cat ~/.apps.md | sed 's/\ */\\e[1;34m/g' | sed 's/\* /\\e[1;30m /g')"
+    printf '%b\n' "$(cat ~/.apps.md | sed 's/\* \*\*/\\e[1;34m/g' | sed 's/\*\* /\\e[1;30m /g')"
 }
 
 # Change working directory to the top-most Finder window location
