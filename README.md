@@ -16,12 +16,13 @@ The script is safe to re-run. It will:
 - Install [Homebrew](https://brew.sh) if missing
 - Install packages from [`Brewfile`](Brewfile): `tmux`, `fzf`, `tree`,
   `yazi`, `micro`, `starship`, `zsh-autosuggestions`,
-  `zsh-syntax-highlighting`, and the JetBrains Mono Nerd Font
+  `zsh-syntax-highlighting`, `eza`, and the JetBrains Mono Nerd Font
 - Symlink `tmux/tmux.conf` -> `~/.config/tmux/tmux.conf` and
   `tmux/scripts/` -> `~/.config/tmux/scripts/` (any real file already at
   those paths gets backed up with a `.bak.<timestamp>` suffix first)
 - Symlink `yazi/keymap.toml` -> `~/.config/yazi/keymap.toml`
 - Symlink `readline/inputrc` -> `~/.inputrc`
+- Symlink `eza/theme.yml` -> `~/.config/eza/theme.yml`
 - Add a line to `~/.zshrc` that sources `zsh/zshrc.dotfiles` (your existing
   `~/.zshrc` is otherwise untouched)
 - Set `git config --global core.editor micro`
@@ -41,8 +42,18 @@ icons — e.g. in iTerm2: Preferences > Profiles > Text), then start tmux.
 | `zsh/zshrc.dotfiles` | `EDITOR`/`VISUAL`, prompt + zsh plugins — sourced from `~/.zshrc` |
 | `zsh/starship.toml` | [Starship](https://starship.rs) prompt config (Catppuccin mocha, matching tmux) |
 | `readline/inputrc` | Arrow keys do prefix-based history search |
+| `eza/theme.yml` | [Catppuccin mocha (mauve)](https://github.com/catppuccin/eza) theme for `ls`/`ll`/`la`/`lt` ([eza](https://eza.rocks)) |
 | `Brewfile` | Packages installed by `install.sh` |
 | `install.sh` | Bootstraps everything above |
+
+## Shell aliases
+
+| Alias | Runs |
+|---|---|
+| `ls` | `eza --icons --group-directories-first` |
+| `ll` | `eza -l --icons --group-directories-first --git --header` |
+| `la` | `eza -la --icons --group-directories-first --git --header` |
+| `lt` | `eza --tree --icons --group-directories-first --level=2` |
 
 ## tmux cheat sheet
 

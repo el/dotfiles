@@ -6,5 +6,6 @@ brew "micro"
 brew "starship"
 brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
+brew "eza"
 
 cask "font-jetbrains-mono-nerd-font"

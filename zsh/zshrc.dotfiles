@@ -17,6 +17,14 @@ fi
 export STARSHIP_CONFIG="$(dirname "${(%):-%x}")/starship.toml"
 command -v starship >/dev/null && eval "$(starship init zsh)"
 
+# Colorful ls (eza), theme set via ~/.config/eza/theme.yml (see install.sh)
+if command -v eza >/dev/null; then
+	alias ls="eza --icons --group-directories-first"
+	alias ll="eza -l --icons --group-directories-first --git --header"
+	alias la="eza -la --icons --group-directories-first --git --header"
+	alias lt="eza --tree --icons --group-directories-first --level=2"
+fi
+
 if command -v brew >/dev/null; then
 	[ -f "$homebrew_prefix/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
 		source "$homebrew_prefix/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
