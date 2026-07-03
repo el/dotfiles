@@ -15,7 +15,8 @@ The script is safe to re-run. It will:
 
 - Install [Homebrew](https://brew.sh) if missing
 - Install packages from [`Brewfile`](Brewfile): `tmux`, `fzf`, `tree`,
-  `yazi`, `micro`, and the JetBrains Mono Nerd Font
+  `yazi`, `micro`, `starship`, `zsh-autosuggestions`,
+  `zsh-syntax-highlighting`, and the JetBrains Mono Nerd Font
 - Symlink `tmux/tmux.conf` -> `~/.config/tmux/tmux.conf` and
   `tmux/scripts/` -> `~/.config/tmux/scripts/` (any real file already at
   those paths gets backed up with a `.bak.<timestamp>` suffix first)
@@ -37,7 +38,8 @@ icons — e.g. in iTerm2: Preferences > Profiles > Text), then start tmux.
 | `tmux/tmux.conf` | Full tmux config |
 | `tmux/scripts/` | Helper scripts tmux/yazi shell out to |
 | `yazi/keymap.toml` | Custom yazi keybindings |
-| `zsh/zshrc.dotfiles` | `EDITOR`/`VISUAL` — sourced from `~/.zshrc` |
+| `zsh/zshrc.dotfiles` | `EDITOR`/`VISUAL`, prompt + zsh plugins — sourced from `~/.zshrc` |
+| `zsh/starship.toml` | [Starship](https://starship.rs) prompt config (Catppuccin mocha, matching tmux) |
 | `readline/inputrc` | Arrow keys do prefix-based history search |
 | `Brewfile` | Packages installed by `install.sh` |
 | `install.sh` | Bootstraps everything above |

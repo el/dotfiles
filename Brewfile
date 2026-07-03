@@ -3,5 +3,8 @@ brew "fzf"
 brew "tree"
 brew "yazi"
 brew "micro"
+brew "starship"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
 
 cask "font-jetbrains-mono-nerd-font"
