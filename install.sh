@@ -43,6 +43,7 @@ echo "==> Symlinking config files..."
 link "$DOTFILES_DIR/tmux/tmux.conf" "$HOME/.config/tmux/tmux.conf"
 link "$DOTFILES_DIR/tmux/scripts" "$HOME/.config/tmux/scripts"
 link "$DOTFILES_DIR/yazi/keymap.toml" "$HOME/.config/yazi/keymap.toml"
+link "$DOTFILES_DIR/readline/inputrc" "$HOME/.inputrc"
 
 # ---------------------------------------------------------------------------
 # 3. zsh: source our snippet from ~/.zshrc without touching the rest of it

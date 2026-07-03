@@ -6,7 +6,7 @@ install script to bootstrap a new Mac.
 ## Install on a new machine
 
 ```sh
-git clone <this-repo-url> ~/Developer/dotfiles
+git clone https://github.com/el/dotfiles.git ~/Developer/dotfiles
 cd ~/Developer/dotfiles
 ./install.sh
 ```
@@ -20,6 +20,7 @@ The script is safe to re-run. It will:
   `tmux/scripts/` -> `~/.config/tmux/scripts/` (any real file already at
   those paths gets backed up with a `.bak.<timestamp>` suffix first)
 - Symlink `yazi/keymap.toml` -> `~/.config/yazi/keymap.toml`
+- Symlink `readline/inputrc` -> `~/.inputrc`
 - Add a line to `~/.zshrc` that sources `zsh/zshrc.dotfiles` (your existing
   `~/.zshrc` is otherwise untouched)
 - Set `git config --global core.editor micro`
@@ -37,6 +38,7 @@ icons — e.g. in iTerm2: Preferences > Profiles > Text), then start tmux.
 | `tmux/scripts/` | Helper scripts tmux/yazi shell out to |
 | `yazi/keymap.toml` | Custom yazi keybindings |
 | `zsh/zshrc.dotfiles` | `EDITOR`/`VISUAL` — sourced from `~/.zshrc` |
+| `readline/inputrc` | Arrow keys do prefix-based history search |
 | `Brewfile` | Packages installed by `install.sh` |
 | `install.sh` | Bootstraps everything above |
 
