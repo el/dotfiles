@@ -1,0 +1,5 @@
+# Sourced from ~/.zshrc by install.sh — keep this file scoped to settings
+# managed by the dotfiles repo, not machine-specific config.
+
+export EDITOR="micro"
+export VISUAL="micro"

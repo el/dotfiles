@@ -1,0 +1,9 @@
+[[mgr.prepend_keymap]]
+on = "<C-o>"
+run = "shell -- ~/.config/tmux/scripts/yazi-open-in-pane.sh %h"
+desc = "Open hovered file in the other tmux pane"
+
+[[mgr.prepend_keymap]]
+on = "<C-g>"
+run = "shell -- ~/.config/tmux/scripts/yazi-cd-pane.sh"
+desc = "cd the other tmux pane to yazi's current directory"
