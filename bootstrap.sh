@@ -2,7 +2,7 @@
 # One-liner entry point:
 #   curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | bash
 #
-# Clones the repo to ~/Developer/dotfiles, or updates the clone if it's
+# Clones the repo to ~/dotfiles, or updates the clone if it's
 # already there, then hands off to install.sh. install.sh reads its menu
 # keys from /dev/tty, so the picker stays interactive even though this
 # script arrives through a pipe. Pass args through with:
@@ -10,7 +10,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/el/dotfiles.git"
-DEST="${DOTFILES_DEST:-$HOME/Developer/dotfiles}"
+DEST="${DOTFILES_DEST:-$HOME/dotfiles}"
 
 if ! command -v git >/dev/null; then
 	if [ "$(uname -s)" = "Linux" ] && command -v apt-get >/dev/null; then

@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | b
 ```
 
 Pasting the same command again later is safe: it updates the existing clone
-at `~/Developer/dotfiles` (`git pull`) and re-runs the installer.
+at `~/dotfiles` (`git pull`) and re-runs the installer.
 
 The installer opens an interactive picker:
 
@@ -36,8 +36,8 @@ curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | b
 Manual equivalent:
 
 ```sh
-git clone https://github.com/el/dotfiles.git ~/Developer/dotfiles
-cd ~/Developer/dotfiles
+git clone https://github.com/el/dotfiles.git ~/dotfiles
+cd ~/dotfiles
 ./install.sh          # interactive menu
 ./install.sh --all    # everything, no menu
 ```
