@@ -1,7 +1,7 @@
 # dotfiles
 
 Personal terminal setup: tmux, yazi, zsh, and git config, with a single
-install script to bootstrap a new Mac.
+install script to bootstrap a new machine (macOS or Linux).
 
 ## Install on a new machine
 
@@ -11,12 +11,17 @@ cd ~/Developer/dotfiles
 ./install.sh
 ```
 
-The script is safe to re-run. It will:
+The script is safe to re-run and detects the OS:
 
-- Install [Homebrew](https://brew.sh) if missing
-- Install packages from [`Brewfile`](Brewfile): `tmux`, `fzf`, `tree`,
-  `yazi`, `micro`, `starship`, `zsh-autosuggestions`,
-  `zsh-syntax-highlighting`, `eza`, and the JetBrains Mono Nerd Font
+- **macOS**: installs [Homebrew](https://brew.sh) if missing, then everything
+  from [`Brewfile`](Brewfile): `tmux`, `fzf`, `tree`, `yazi`, `micro`,
+  `starship`, `zsh-autosuggestions`, `zsh-syntax-highlighting`, `eza`, and
+  the JetBrains Mono Nerd Font
+- **Linux**: installs `tmux`, `fzf`, `tree`, `micro`, `zsh-autosuggestions`,
+  `zsh-syntax-highlighting` via `apt`. `starship`, `eza`, `yazi`, and the
+  Nerd Font aren't reliably in apt repos, so those are fetched straight from
+  upstream (official installer for starship, prebuilt release binaries for
+  eza/yazi, font zip + `fc-cache` for the Nerd Font)
 - Symlink `tmux/tmux.conf` -> `~/.config/tmux/tmux.conf` and
   `tmux/scripts/` -> `~/.config/tmux/scripts/` (any real file already at
   those paths gets backed up with a `.bak.<timestamp>` suffix first)
@@ -32,6 +37,11 @@ After it finishes: open a new terminal (or `source ~/.zshrc`), set your
 terminal's font to **JetBrainsMono Nerd Font** (needed for the status bar
 icons — e.g. in iTerm2: Preferences > Profiles > Text), then start tmux.
 
+Everything here assumes **zsh** as your login shell (macOS defaults to it;
+most Linux distros default to bash). If `echo $SHELL` doesn't say `zsh`,
+run `chsh -s "$(command -v zsh)"` and re-login, otherwise `zsh/zshrc.dotfiles`
+never gets sourced.
+
 ## What's in here
 
 | Path | Purpose |
@@ -43,8 +53,8 @@ icons — e.g. in iTerm2: Preferences > Profiles > Text), then start tmux.
 | `zsh/starship.toml` | [Starship](https://starship.rs) prompt config (Catppuccin mocha, matching tmux) |
 | `readline/inputrc` | Arrow keys do prefix-based history search |
 | `eza/theme.yml` | [Catppuccin mocha (mauve)](https://github.com/catppuccin/eza) theme for `ls`/`ll`/`la`/`lt` ([eza](https://eza.rocks)) |
-| `Brewfile` | Packages installed by `install.sh` |
-| `install.sh` | Bootstraps everything above |
+| `Brewfile` | Packages installed by `install.sh` on macOS |
+| `install.sh` | Bootstraps everything above (macOS via Homebrew, Linux via apt + upstream installers) |
 
 ## Shell aliases
 
