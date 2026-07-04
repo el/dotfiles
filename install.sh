@@ -52,6 +52,17 @@ ITEM_LABELS=(
 )
 ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
+# Only offer switching the login shell when it isn't already zsh. Defaults
+# to unselected (even under --all): changing the login shell is system-wide
+# and needs a re-login to take effect, so it should be opt-in, not implied
+# by "install everything".
+if [ "$(basename "${SHELL:-}")" != "zsh" ]; then
+	ITEM_CATS+=(2)
+	ITEM_IDS+=(switch-shell)
+	ITEM_LABELS+=("Switch default shell to zsh (currently ${SHELL:-unknown})")
+	ITEM_SEL+=(0)
+fi
+
 sel() { # sel <id> — succeeds if that item is selected
 	local i
 	for ((i = 0; i < ${#ITEM_IDS[@]}; i++)); do
@@ -294,6 +305,7 @@ elif [ "$OS" = "Linux" ]; then
 	done
 	sel zshrc && apt_pkgs="$apt_pkgs zsh"
 	sel zsh-plugins && apt_pkgs="$apt_pkgs zsh zsh-autosuggestions zsh-syntax-highlighting"
+	sel switch-shell && apt_pkgs="$apt_pkgs zsh"
 	sel tmux-plugins && apt_pkgs="$apt_pkgs git"
 	if sel starship || sel eza || sel yazi || sel nerd-font; then
 		apt_pkgs="$apt_pkgs curl ca-certificates"
@@ -427,14 +439,42 @@ if sel tmux-plugins; then
 	TMUX_PLUGIN_MANAGER_PATH="$HOME/.config/tmux/plugins/" "$TPM_DIR/bin/install_plugins"
 fi
 
+# ---------------------------------------------------------------------------
+# 6. Switch default shell to zsh (only offered/selectable if not already zsh)
+# ---------------------------------------------------------------------------
+SHELL_SWITCHED=0
+if sel switch-shell; then
+	zsh_path="$(command -v zsh || true)"
+	if [ -z "$zsh_path" ]; then
+		echo "!! zsh not found on PATH — skipping shell switch"
+	else
+		if [ -f /etc/shells ] && ! grep -qxF "$zsh_path" /etc/shells; then
+			echo "==> Adding $zsh_path to /etc/shells..."
+			echo "$zsh_path" | sudo tee -a /etc/shells >/dev/null
+		fi
+		echo "==> Switching default shell to zsh (may prompt for your password)..."
+		if chsh -s "$zsh_path"; then
+			SHELL_SWITCHED=1
+		else
+			echo "!! Could not switch automatically. Run manually: chsh -s $zsh_path"
+		fi
+	fi
+fi
+
 cat <<'EOF'
 
 ==> Done!
 
 Next steps:
   - Open a new terminal (or run: source ~/.zshrc)
-  - If your default login shell isn't zsh, none of the zsh settings above
-    will take effect until you switch: chsh -s "$(command -v zsh)"
+EOF
+if [ "$SHELL_SWITCHED" -eq 1 ]; then
+	echo "  - Default shell is now zsh — log out and back in for it to take effect"
+elif [ "$(basename "${SHELL:-}")" != "zsh" ]; then
+	echo "  - Your login shell isn't zsh, so the zsh settings above won't take"
+	echo "    effect until you switch: chsh -s \"\$(command -v zsh)\""
+fi
+cat <<'EOF'
   - Set your terminal's font to "JetBrainsMono Nerd Font" (needed for icons
     in the tmux status bar and prompt)
   - Start tmux and try: ` Space   (prefix + space opens the keybinding menu)
