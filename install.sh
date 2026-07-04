@@ -405,15 +405,24 @@ if sel zshrc; then
 	ZSHRC="$HOME/.zshrc"
 	SOURCE_LINE="[ -f \"$DOTFILES_DIR/zsh/zshrc.dotfiles\" ] && source \"$DOTFILES_DIR/zsh/zshrc.dotfiles\""
 	touch "$ZSHRC"
-	if ! grep -qF "zshrc.dotfiles" "$ZSHRC"; then
+	if grep -qF "$SOURCE_LINE" "$ZSHRC"; then
+		echo "==> $ZSHRC already sources dotfiles from the current location, skipping"
+	else
+		# A line mentioning zshrc.dotfiles but not matching SOURCE_LINE means
+		# the repo moved (e.g. an earlier run cloned to a different path) —
+		# drop the stale line instead of leaving it dangling alongside a new one.
+		if grep -qF "zshrc.dotfiles" "$ZSHRC"; then
+			echo "==> Removing stale dotfiles source line from $ZSHRC..."
+			tmp="$(mktemp)"
+			grep -vF "zshrc.dotfiles" "$ZSHRC" | grep -vF "# Load shared dotfiles settings" >"$tmp"
+			mv "$tmp" "$ZSHRC"
+		fi
 		{
 			echo ""
 			echo "# Load shared dotfiles settings"
 			echo "$SOURCE_LINE"
 		} >>"$ZSHRC"
 		echo "==> Added dotfiles source line to $ZSHRC"
-	else
-		echo "==> $ZSHRC already sources dotfiles, skipping"
 	fi
 fi
 
