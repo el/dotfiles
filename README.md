@@ -6,32 +6,63 @@ install script to bootstrap a new machine (macOS or Linux).
 ## Install on a new machine
 
 ```sh
-git clone https://github.com/el/dotfiles.git ~/Developer/dotfiles
-cd ~/Developer/dotfiles
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | bash
 ```
 
-The script is safe to re-run and detects the OS:
+Pasting the same command again later is safe: it updates the existing clone
+at `~/Developer/dotfiles` (`git pull`) and re-runs the installer.
 
-- **macOS**: installs [Homebrew](https://brew.sh) if missing, then everything
-  from [`Brewfile`](Brewfile): `tmux`, `fzf`, `tree`, `yazi`, `micro`,
-  `starship`, `zsh-autosuggestions`, `zsh-syntax-highlighting`, `eza`, and
+The installer opens an interactive picker:
+
+```
+dotfiles installer — choose what to set up
+
+ > [x] CLI Apps (8/8)
+   [x] Tmux (2/2)
+   [x] Zsh (2/2)
+   [x] Other Configs (4/4)
+
+   ↑/↓ move · space toggle · > drill down · enter install · q quit
+```
+
+`space` toggles a whole category, `>` drills into it to select/unselect
+individual items, `<` goes back, `enter` installs the selection. To skip the
+menu and install everything (also what happens when no terminal is attached):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | bash -s -- --all
+```
+
+Manual equivalent:
+
+```sh
+git clone https://github.com/el/dotfiles.git ~/Developer/dotfiles
+cd ~/Developer/dotfiles
+./install.sh          # interactive menu
+./install.sh --all    # everything, no menu
+```
+
+The installer is safe to re-run (every step is idempotent, and any real
+config file already in place is backed up with a `.bak.<timestamp>` suffix
+before being replaced by a symlink). It detects the OS:
+
+- **macOS**: packages via [Homebrew](https://brew.sh) (installed if missing)
+- **Linux**: `tmux`, `fzf`, `tree`, `micro`, `zsh`, and the zsh plugins via
+  `apt`; `starship`, `eza`, `yazi`, and the Nerd Font aren't reliably in apt
+  repos, so those are fetched from upstream (official installer for
+  starship, prebuilt release binaries for eza/yazi, font zip + `fc-cache`)
+
+What it sets up (each individually selectable in the menu):
+
+- CLI apps: `tmux`, `fzf`, `tree`, `micro`, `yazi`, `eza`, `starship`, and
   the JetBrains Mono Nerd Font
-- **Linux**: installs `tmux`, `fzf`, `tree`, `micro`, `zsh-autosuggestions`,
-  `zsh-syntax-highlighting` via `apt`. `starship`, `eza`, `yazi`, and the
-  Nerd Font aren't reliably in apt repos, so those are fetched straight from
-  upstream (official installer for starship, prebuilt release binaries for
-  eza/yazi, font zip + `fc-cache` for the Nerd Font)
-- Symlink `tmux/tmux.conf` -> `~/.config/tmux/tmux.conf` and
-  `tmux/scripts/` -> `~/.config/tmux/scripts/` (any real file already at
-  those paths gets backed up with a `.bak.<timestamp>` suffix first)
-- Symlink `yazi/keymap.toml` -> `~/.config/yazi/keymap.toml`
-- Symlink `readline/inputrc` -> `~/.inputrc`
-- Symlink `eza/theme.yml` -> `~/.config/eza/theme.yml`
-- Add a line to `~/.zshrc` that sources `zsh/zshrc.dotfiles` (your existing
+- Symlinks: `tmux/tmux.conf` + `tmux/scripts/` -> `~/.config/tmux/`,
+  `yazi/keymap.toml` -> `~/.config/yazi/`, `readline/inputrc` ->
+  `~/.inputrc`, `eza/theme.yml` -> `~/.config/eza/`
+- A line in `~/.zshrc` that sources `zsh/zshrc.dotfiles` (your existing
   `~/.zshrc` is otherwise untouched)
-- Set `git config --global core.editor micro`
-- Install [TPM](https://github.com/tmux-plugins/tpm) and all tmux plugins
+- `git config --global core.editor micro`
+- [TPM](https://github.com/tmux-plugins/tpm) and all tmux plugins
 
 After it finishes: open a new terminal (or `source ~/.zshrc`), set your
 terminal's font to **JetBrainsMono Nerd Font** (needed for the status bar
@@ -53,8 +84,8 @@ never gets sourced.
 | `zsh/starship.toml` | [Starship](https://starship.rs) prompt config (Catppuccin mocha, matching tmux) |
 | `readline/inputrc` | Arrow keys do prefix-based history search |
 | `eza/theme.yml` | [Catppuccin mocha (mauve)](https://github.com/catppuccin/eza) theme for `ls`/`ll`/`la`/`lt` ([eza](https://eza.rocks)) |
-| `Brewfile` | Packages installed by `install.sh` on macOS |
-| `install.sh` | Bootstraps everything above (macOS via Homebrew, Linux via apt + upstream installers) |
+| `bootstrap.sh` | `curl \| bash` entry point — clones/updates the repo, then runs `install.sh` |
+| `install.sh` | Interactive installer (macOS via Homebrew, Linux via apt + upstream installers) |
 
 ## Shell aliases
 

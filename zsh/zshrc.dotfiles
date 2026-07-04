@@ -4,14 +4,15 @@
 export EDITOR="micro"
 export VISUAL="micro"
 
-# zsh-syntax-highlighting must be the LAST thing sourced in this file: it
-# wraps existing zle widgets, so anything sourced after it won't get
-# highlighted.
+# Shared-plugin dir: Homebrew's share on macOS, /usr/share on Linux (apt)
 if command -v brew >/dev/null; then
-	homebrew_prefix="$(brew --prefix)"
-	[ -f "$homebrew_prefix/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] &&
-		source "$homebrew_prefix/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+	_zsh_plugins="$(brew --prefix)/share"
+else
+	_zsh_plugins="/usr/share"
 fi
+
+[ -f "$_zsh_plugins/zsh-autosuggestions/zsh-autosuggestions.zsh" ] &&
+	source "$_zsh_plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
 # Prompt (Catppuccin mocha, matching the tmux theme)
 export STARSHIP_CONFIG="$(dirname "${(%):-%x}")/starship.toml"
@@ -25,7 +26,9 @@ if command -v eza >/dev/null; then
 	alias lt="eza --tree --icons --group-directories-first --level=2"
 fi
 
-if command -v brew >/dev/null; then
-	[ -f "$homebrew_prefix/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
-		source "$homebrew_prefix/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-fi
+# zsh-syntax-highlighting must be the LAST thing sourced in this file: it
+# wraps existing zle widgets, so anything registered after it won't get
+# highlighted.
+[ -f "$_zsh_plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
+	source "$_zsh_plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+unset _zsh_plugins
