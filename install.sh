@@ -137,22 +137,6 @@ read_key() {
 	KEY="$k"
 }
 
-draw_top() { # $1 = cursor
-	local i mark counts s t
-	{
-		printf '\033[H\033[2J'
-		printf 'dotfiles installer — choose what to set up\n\n'
-		for ((i = 0; i < ${#CAT_NAMES[@]}; i++)); do
-			counts=$(cat_count "$i")
-			s=${counts%% *} t=${counts##* }
-			if [ "$s" -eq "$t" ]; then mark="x"; elif [ "$s" -eq 0 ]; then mark=" "; else mark="-"; fi
-			if [ "$i" -eq "$1" ]; then printf ' > '; else printf '   '; fi
-			printf '[%s] %s (%s/%s)\n' "$mark" "${CAT_NAMES[$i]}" "$s" "$t"
-		done
-		printf '\n   ↑/↓ move · space toggle · > drill down · enter install · q quit\n'
-	} >/dev/tty
-}
-
 cat_count() { # "selected total" for category $1
 	local idx s=0 t=0
 	for idx in $(cat_items "$1"); do
@@ -162,35 +146,142 @@ cat_count() { # "selected total" for category $1
 	echo "$s $t"
 }
 
-draw_cat() { # $1 = category, $2 = cursor
-	local idx n=0 mark
+total_count() { # "selected total" across everything
+	local i s=0
+	for ((i = 0; i < ${#ITEM_SEL[@]}; i++)); do
+		if [ "${ITEM_SEL[$i]}" -eq 1 ]; then s=$((s + 1)); fi
+	done
+	echo "$s ${#ITEM_SEL[@]}"
+}
+
+item_info() { # $1 = item id → one-line note for the info pane
+	local id="$1" method="" installed=""
+	case "$id" in
+	cheat)
+		echo "symlink → ~/.local/bin/cheat"
+		return
+		;;
+	tmux-config)
+		echo "symlinks → ~/.config/tmux/tmux.conf + scripts/"
+		return
+		;;
+	tmux-plugins)
+		echo "TPM clone + plugin install → ~/.config/tmux/plugins/"
+		return
+		;;
+	zshrc)
+		echo "adds one source line to ~/.zshrc"
+		return
+		;;
+	yazi-config)
+		echo "symlink → ~/.config/yazi/keymap.toml"
+		return
+		;;
+	eza-theme)
+		echo "symlink → ~/.config/eza/theme.yml"
+		return
+		;;
+	btop-theme)
+		echo "symlink + color_theme line in ~/.config/btop/btop.conf"
+		return
+		;;
+	inputrc)
+		echo "symlink → ~/.inputrc"
+		return
+		;;
+	git-editor)
+		echo "git config --global core.editor micro"
+		return
+		;;
+	switch-shell)
+		echo "runs chsh -s zsh (asks for your password; needs re-login)"
+		return
+		;;
+	esac
+	# Everything else is a package.
+	if [ "$OS" = "Darwin" ]; then
+		case "$id" in
+		nerd-font) method="Homebrew cask" ;;
+		*) method="Homebrew" ;;
+		esac
+	else
+		case "$id" in
+		tmux | fzf | tree | micro | zsh-plugins) method="apt" ;;
+		nerd-font) method="upstream download + fc-cache" ;;
+		starship) method="official install script" ;;
+		*) method="upstream release binary" ;;
+		esac
+	fi
+	case "$id" in
+	nerd-font | zsh-plugins) ;;
+	gdu)
+		if command -v gdu >/dev/null 2>&1 || command -v gdu-go >/dev/null 2>&1; then
+			installed=" · already installed"
+		fi
+		;;
+	*)
+		if command -v "$id" >/dev/null 2>&1; then installed=" · already installed"; fi
+		;;
+	esac
+	echo "installs via ${method}${installed}"
+}
+
+draw_menu() { # $1 = active tab, $2 = cursor row
+	local c i n mark counts s t info
 	{
 		printf '\033[H\033[2J'
-		printf '%s\n\n' "${CAT_NAMES[$1]}"
-		for idx in $(cat_items "$1"); do
-			if [ "${ITEM_SEL[$idx]}" -eq 1 ]; then mark="x"; else mark=" "; fi
-			if [ "$n" -eq "$2" ]; then printf ' > '; else printf '   '; fi
-			printf '[%s] %s\n' "$mark" "${ITEM_LABELS[$idx]}"
+		printf '  \033[1mdotfiles installer\033[0m \033[2m— choose what to set up\033[0m\n\n  '
+		for ((c = 0; c < ${#CAT_NAMES[@]}; c++)); do
+			if [ "$c" -eq "$1" ]; then
+				printf '\033[7;1m %s \033[0m ' "${CAT_NAMES[$c]}"
+			else
+				printf '\033[2m %s \033[0m ' "${CAT_NAMES[$c]}"
+			fi
+		done
+		counts=$(cat_count "$1")
+		s=${counts%% *} t=${counts##* }
+		printf '\n\n   \033[2m%s/%s selected in this tab' "$s" "$t"
+		counts=$(total_count)
+		s=${counts%% *} t=${counts##* }
+		printf ' · %s/%s total\033[0m\n' "$s" "$t"
+		n=0
+		for i in $(cat_items "$1"); do
+			if [ "${ITEM_SEL[$i]}" -eq 1 ]; then mark="x"; else mark=" "; fi
+			if [ "$n" -eq "$2" ]; then
+				printf ' \033[1;36m> [%s] %s\033[0m\n' "$mark" "${ITEM_LABELS[$i]}"
+			else
+				printf '   [%s] %s\n' "$mark" "${ITEM_LABELS[$i]}"
+			fi
 			n=$((n + 1))
 		done
-		printf '\n   ↑/↓ move · space toggle · < back\n'
+		i=$(cat_item_at "$1" "$2")
+		info=$(item_info "${ITEM_IDS[$i]}")
+		printf '\n  \033[2m─ info ──────────────────────────────────────────\033[0m\n'
+		printf '  \033[2m%s\033[0m\n' "$info"
+		printf '\n  \033[2m←/→ tabs · ↑/↓ move · space toggle · a all/none · enter install · q quit\033[0m\n'
 	} >/dev/tty
 }
 
 run_menu() {
-	local view=-1 cursor=0 rows ii
+	local tab=0 cursor=0 rows ii
 	trap 'printf "\033[?25h" > /dev/tty 2>/dev/null || true' EXIT
 	printf '\033[?25l' >/dev/tty
 	while :; do
-		if [ "$view" -eq -1 ]; then
-			rows=${#CAT_NAMES[@]}
-			draw_top "$cursor"
-		else
-			rows=$(cat_size "$view")
-			draw_cat "$view" "$cursor"
-		fi
+		rows=$(cat_size "$tab")
+		if [ "$cursor" -ge "$rows" ]; then cursor=$((rows - 1)); fi
+		draw_menu "$tab" "$cursor"
 		read_key
 		case "$KEY" in
+		"$KEY_LEFT" | h | '<')
+			tab=$((tab - 1))
+			if [ "$tab" -lt 0 ]; then tab=$((${#CAT_NAMES[@]} - 1)); fi
+			cursor=0
+			;;
+		"$KEY_RIGHT" | l | '>')
+			tab=$((tab + 1))
+			if [ "$tab" -ge ${#CAT_NAMES[@]} ]; then tab=0; fi
+			cursor=0
+			;;
 		"$KEY_UP" | k)
 			cursor=$((cursor - 1))
 			if [ "$cursor" -lt 0 ]; then cursor=$((rows - 1)); fi
@@ -200,42 +291,19 @@ run_menu() {
 			if [ "$cursor" -ge "$rows" ]; then cursor=0; fi
 			;;
 		' ')
-			if [ "$view" -eq -1 ]; then
-				toggle_cat "$cursor"
-			else
-				ii=$(cat_item_at "$view" "$cursor")
-				if [ "${ITEM_SEL[$ii]}" -eq 1 ]; then ITEM_SEL[$ii]=0; else ITEM_SEL[$ii]=1; fi
-			fi
+			ii=$(cat_item_at "$tab" "$cursor")
+			if [ "${ITEM_SEL[$ii]}" -eq 1 ]; then ITEM_SEL[$ii]=0; else ITEM_SEL[$ii]=1; fi
 			;;
-		'>' | "$KEY_RIGHT")
-			if [ "$view" -eq -1 ]; then
-				view=$cursor
-				cursor=0
-			fi
-			;;
-		'<' | "$KEY_LEFT")
-			if [ "$view" -ne -1 ]; then
-				cursor=$view
-				view=-1
-			fi
+		a | A)
+			toggle_cat "$tab"
 			;;
 		'')
-			if [ "$view" -eq -1 ]; then
-				break
-			else
-				cursor=$view
-				view=-1
-			fi
+			break
 			;;
 		q | Q)
-			if [ "$view" -eq -1 ]; then
-				printf '\033[?25h\n' >/dev/tty
-				echo "Aborted — nothing installed."
-				exit 0
-			else
-				cursor=$view
-				view=-1
-			fi
+			printf '\033[?25h\n' >/dev/tty
+			echo "Aborted — nothing installed."
+			exit 0
 			;;
 		esac
 	done

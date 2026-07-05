@@ -12,24 +12,33 @@ curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | b
 Pasting the same command again later is safe: it updates the existing clone
 at `~/dotfiles` (`git pull`) and re-runs the installer.
 
-The installer opens an interactive picker:
+The installer opens an interactive picker (same look and feel as the
+`cheat` tool it installs):
 
 ```
-dotfiles installer — choose what to set up
+  dotfiles installer — choose what to set up
 
- > [x] Terminal & Prompt (3/3)
-   [x] File Tools (5/5)
-   [x] Git & Monitoring (3/3)
-   [x] Tmux (2/2)
-   [x] Zsh (2/2)
-   [x] Other Configs (5/5)
+   Terminal & Prompt   File Tools   Git & Monitoring   Tmux   Zsh   Other Configs
 
-   ↑/↓ move · space toggle · > drill down · enter install · q quit
+   5/5 selected in this tab · 22/22 total
+ > [x] tmux — terminal multiplexer
+   [x] starship — shell prompt
+   [x] JetBrainsMono Nerd Font
+   [x] pet — command snippet manager (Ctrl-S to search)
+   [x] cheat — interactive guide/launcher for these tools
+
+  ─ info ──────────────────────────────────────────
+  installs via Homebrew · already installed
+
+  ←/→ tabs · ↑/↓ move · space toggle · a all/none · enter install · q quit
 ```
 
-`space` toggles a whole category, `>` drills into it to select/unselect
-individual items, `<` goes back, `enter` installs the selection. To skip the
-menu and install everything (also what happens when no terminal is attached):
+`←/→` switches category tabs, `space` toggles the highlighted item, `a`
+toggles everything in the current tab, `enter` installs the selection. The
+info pane shows how the highlighted item installs on this OS (Homebrew /
+apt / upstream release / symlink destination) and whether it's already
+present. To skip the menu and install everything (also what happens when no
+terminal is attached):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | bash -s -- --all
