@@ -3,7 +3,8 @@
 #
 # Usage:
 #   ./install.sh          interactive menu to pick what to install
-#   ./install.sh --all    install everything, no menu
+#   ./install.sh --all    install the default selection, no menu
+#                         (skips DEFAULT_OFF items and switch-shell)
 #
 # Env:
 #   DOTFILES_ALL=1        same as --all
@@ -38,7 +39,7 @@ ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
 	tealdeer bat television jless glow gping bandwhich)
 ITEM_LABELS=(
 	"tmux — terminal multiplexer"
-	"fzf — fuzzy finder"
+	"fzf — fuzzy finder (powers the tmux-fzf and extrakto tmux plugins)"
 	"tree — directory listings"
 	"micro — terminal editor"
 	"yazi — file manager"
@@ -68,6 +69,14 @@ ITEM_LABELS=(
 	"bandwhich — per-process bandwidth monitor"
 )
 ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+
+# These start unselected (opt-in via the menu; --all also skips them).
+DEFAULT_OFF="fzf tree lazygit tealdeer glow"
+for _off_id in $DEFAULT_OFF; do
+	for ((i = 0; i < ${#ITEM_IDS[@]}; i++)); do
+		if [ "${ITEM_IDS[$i]}" = "$_off_id" ]; then ITEM_SEL[$i]=0; fi
+	done
+done
 
 # Only offer switching the login shell when it isn't already zsh. Defaults
 # to unselected (even under --all): changing the login shell is system-wide

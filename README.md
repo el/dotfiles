@@ -20,12 +20,13 @@ The installer opens an interactive picker (same look and feel as the
 
    Terminal & Prompt   File Tools   Git & Monitoring   Tmux   Zsh   Other Configs
 
-   5/5 selected in this tab · 22/22 total
+   5/6 selected in this tab · 24/29 total
  > [x] tmux — terminal multiplexer
    [x] starship — shell prompt
    [x] JetBrainsMono Nerd Font
    [x] pet — command snippet manager (Ctrl-S to search)
    [x] cheat — interactive guide/launcher for these tools
+   [ ] tealdeer — tldr cheatsheet pages (command: tldr)
 
   ─ info ──────────────────────────────────────────
   installs via Homebrew · already installed
@@ -37,8 +38,13 @@ The installer opens an interactive picker (same look and feel as the
 toggles everything in the current tab, `enter` installs the selection. The
 info pane shows how the highlighted item installs on this OS (Homebrew /
 apt / upstream release / symlink destination) and whether it's already
-present. To skip the menu and install everything (also what happens when no
-terminal is attached):
+present.
+
+A few items start unselected — opt in via the menu: `fzf`, `tree`,
+`lazygit`, `tealdeer`, `glow` (and "switch shell to zsh" on machines where
+zsh isn't the login shell). Note that the tmux-fzf and extrakto tmux
+plugins need `fzf` on PATH to work. To skip the menu and install the
+default selection (also what happens when no terminal is attached):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/el/dotfiles/master/bootstrap.sh | bash -s -- --all
@@ -50,7 +56,7 @@ Manual equivalent:
 git clone https://github.com/el/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 ./install.sh          # interactive menu
-./install.sh --all    # everything, no menu
+./install.sh --all    # default selection, no menu
 ```
 
 The installer is safe to re-run (every step is idempotent, and any real
