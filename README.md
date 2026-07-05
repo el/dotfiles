@@ -17,10 +17,12 @@ The installer opens an interactive picker:
 ```
 dotfiles installer — choose what to set up
 
- > [x] CLI Apps (8/8)
+ > [x] Terminal & Prompt (3/3)
+   [x] File Tools (5/5)
+   [x] Git & Monitoring (3/3)
    [x] Tmux (2/2)
    [x] Zsh (2/2)
-   [x] Other Configs (4/4)
+   [x] Other Configs (5/5)
 
    ↑/↓ move · space toggle · > drill down · enter install · q quit
 ```
@@ -48,21 +50,29 @@ before being replaced by a symlink). It detects the OS:
 
 - **macOS**: packages via [Homebrew](https://brew.sh) (installed if missing)
 - **Linux**: `tmux`, `fzf`, `tree`, `micro`, `zsh`, and the zsh plugins via
-  `apt`; `starship`, `eza`, `yazi`, and the Nerd Font aren't reliably in apt
-  repos, so those are fetched from upstream (official installer for
-  starship, prebuilt release binaries for eza/yazi, font zip + `fc-cache`)
+  `apt`; `starship`, `eza`, `yazi`, `btop`, `gdu`, `lazygit`, and the Nerd
+  Font aren't reliably in apt repos (or drift across distro versions), so
+  those are fetched from upstream instead (official installer for starship,
+  prebuilt release binaries for the rest, font zip + `fc-cache`)
 
 What it sets up (each individually selectable in the menu):
 
-- CLI apps: `tmux`, `fzf`, `tree`, `micro`, `yazi`, `eza`, `starship`, and
-  the JetBrains Mono Nerd Font
+- **Terminal & Prompt**: `tmux`, `starship`, `pet`, the JetBrains Mono Nerd Font
+- **File Tools**: `fzf`, `tree`, `micro`, `yazi`, `eza`
+- **Git & Monitoring**: `lazygit`, `btop`, `gdu`
 - Symlinks: `tmux/tmux.conf` + `tmux/scripts/` -> `~/.config/tmux/`,
   `yazi/keymap.toml` -> `~/.config/yazi/`, `readline/inputrc` ->
-  `~/.inputrc`, `eza/theme.yml` -> `~/.config/eza/`
+  `~/.inputrc`, `eza/theme.yml` -> `~/.config/eza/`,
+  `btop/catppuccin_mocha.theme` -> `~/.config/btop/themes/` (and sets
+  `color_theme` in `btop.conf`)
 - A line in `~/.zshrc` that sources `zsh/zshrc.dotfiles` (your existing
   `~/.zshrc` is otherwise untouched)
 - `git config --global core.editor micro`
 - [TPM](https://github.com/tmux-plugins/tpm) and all tmux plugins
+
+Note: on macOS, Homebrew installs `gdu`'s binary as `gdu-go` (it conflicts
+with coreutils' own `gdu`). `zshrc.dotfiles` aliases `gdu` to `gdu-go`
+automatically when that's the case, so the command is just `gdu` either way.
 
 After it finishes: open a new terminal (or `source ~/.zshrc`), set your
 terminal's font to **JetBrainsMono Nerd Font** (needed for the status bar
@@ -84,6 +94,7 @@ never gets sourced.
 | `zsh/starship.toml` | [Starship](https://starship.rs) prompt config (Catppuccin mocha, matching tmux) |
 | `readline/inputrc` | Arrow keys do prefix-based history search |
 | `eza/theme.yml` | [Catppuccin mocha (mauve)](https://github.com/catppuccin/eza) theme for `ls`/`ll`/`la`/`lt` ([eza](https://eza.rocks)) |
+| `btop/catppuccin_mocha.theme` | [Catppuccin mocha](https://github.com/catppuccin/btop) theme for [btop](https://github.com/aristocratos/btop) |
 | `bootstrap.sh` | `curl \| bash` entry point — clones/updates the repo, then runs `install.sh` |
 | `install.sh` | Interactive installer (macOS via Homebrew, Linux via apt + upstream installers) |
 
@@ -95,6 +106,15 @@ never gets sourced.
 | `ll` | `eza -l --icons --group-directories-first --git --header` |
 | `la` | `eza -la --icons --group-directories-first --git --header` |
 | `lt` | `eza --tree --icons --group-directories-first --level=2` |
+
+## Other CLI apps
+
+| Command | What |
+|---|---|
+| [`lazygit`](https://github.com/jesseduffield/lazygit) | Git TUI — stage, commit, branch, rebase; mouse-clickable panels |
+| [`btop`](https://github.com/aristocratos/btop) | System monitor (CPU/mem/disk/net/proc), Catppuccin themed, mouse support |
+| `gdu` | Disk usage analyzer with mouse support (aliased from `gdu-go` on macOS) |
+| [`pet`](https://github.com/knqyf263/pet) | Command snippet manager — save/search reusable commands. `pet new` to save one, or press **Ctrl-S** anywhere in the shell to search (unrelated to tmux's `` ` `` `Ctrl-s`, which needs the prefix key first) |
 
 ## tmux cheat sheet
 

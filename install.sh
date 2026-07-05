@@ -13,8 +13,9 @@
 # with symlinks, and every step is idempotent.
 #
 # macOS: packages via Homebrew (installed if missing).
-# Linux: packages via apt; starship, eza, yazi, and the Nerd Font aren't
-# reliably in apt repos, so those come from upstream releases.
+# Linux: packages via apt where reliable; starship, eza, yazi, btop, gdu,
+# lazygit, and the Nerd Font aren't reliably in apt repos (or drift across
+# distro versions), so those come from upstream releases/installers instead.
 #
 # Kept bash-3.2 compatible (stock macOS bash): no associative arrays,
 # no fractional read timeouts.
@@ -26,12 +27,14 @@ OS="$(uname -s)"
 # ---------------------------------------------------------------------------
 # Selection model
 # ---------------------------------------------------------------------------
-CAT_NAMES=("CLI Apps" "Tmux" "Zsh" "Other Configs")
+CAT_NAMES=("Terminal & Prompt" "File Tools" "Git & Monitoring" "Tmux" "Zsh" "Other Configs")
 
-ITEM_CATS=(0 0 0 0 0 0 0 0 1 1 2 2 3 3 3 3)
+ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0)
 ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
+	lazygit btop gdu
 	tmux-config tmux-plugins zshrc zsh-plugins
-	yazi-config eza-theme inputrc git-editor)
+	yazi-config eza-theme btop-theme inputrc git-editor
+	pet)
 ITEM_LABELS=(
 	"tmux — terminal multiplexer"
 	"fzf — fuzzy finder"
@@ -41,23 +44,28 @@ ITEM_LABELS=(
 	"eza — colorful ls"
 	"starship — shell prompt"
 	"JetBrainsMono Nerd Font"
+	"lazygit — git TUI"
+	"btop — system monitor"
+	"gdu — disk usage analyzer"
 	"tmux.conf + helper scripts"
 	"tmux plugins (TPM: theme, resurrect, fzf, ...)"
 	".zshrc snippet (EDITOR, prompt, eza aliases)"
 	"zsh plugins (autosuggestions, syntax highlighting)"
 	"yazi keymap (tmux sidebar integration)"
 	"eza Catppuccin theme"
+	"btop Catppuccin theme"
 	"inputrc (arrow-key history search)"
 	"git core.editor = micro"
+	"pet — command snippet manager (Ctrl-S to search)"
 )
-ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
 # Only offer switching the login shell when it isn't already zsh. Defaults
 # to unselected (even under --all): changing the login shell is system-wide
 # and needs a re-login to take effect, so it should be opt-in, not implied
 # by "install everything".
 if [ "$(basename "${SHELL:-}")" != "zsh" ]; then
-	ITEM_CATS+=(2)
+	ITEM_CATS+=(4)
 	ITEM_IDS+=(switch-shell)
 	ITEM_LABELS+=("Switch default shell to zsh (currently ${SHELL:-unknown})")
 	ITEM_SEL+=(0)
@@ -281,7 +289,7 @@ ensure_brew() {
 
 if [ "$OS" = "Darwin" ]; then
 	formulas=""
-	for id in tmux fzf tree micro yazi eza starship; do
+	for id in tmux fzf tree micro yazi eza starship lazygit btop gdu pet; do
 		sel "$id" && formulas="$formulas $id"
 	done
 	sel zsh-plugins && formulas="$formulas zsh-autosuggestions zsh-syntax-highlighting"
@@ -307,7 +315,7 @@ elif [ "$OS" = "Linux" ]; then
 	sel zsh-plugins && apt_pkgs="$apt_pkgs zsh zsh-autosuggestions zsh-syntax-highlighting"
 	sel switch-shell && apt_pkgs="$apt_pkgs zsh"
 	sel tmux-plugins && apt_pkgs="$apt_pkgs git"
-	if sel starship || sel eza || sel yazi || sel nerd-font; then
+	if sel starship || sel eza || sel yazi || sel nerd-font || sel btop || sel gdu || sel lazygit || sel pet; then
 		apt_pkgs="$apt_pkgs curl ca-certificates"
 	fi
 	if sel yazi || sel nerd-font; then apt_pkgs="$apt_pkgs unzip"; fi
@@ -319,10 +327,28 @@ elif [ "$OS" = "Linux" ]; then
 		sudo apt-get install -y $apt_pkgs
 	fi
 
+	# Three different arch-naming conventions across ecosystems: Rust gnu
+	# target triples (eza/yazi), Rust musl triples (btop), and Go-style
+	# arch strings (gdu, lazygit — which oddly uses "x86_64" not "amd64").
 	case "$(uname -m)" in
-	aarch64 | arm64) RUST_TARGET="aarch64-unknown-linux-gnu" ;;
-	x86_64) RUST_TARGET="x86_64-unknown-linux-gnu" ;;
-	*) RUST_TARGET="" ;;
+	aarch64 | arm64)
+		RUST_TARGET="aarch64-unknown-linux-gnu"
+		MUSL_TARGET="aarch64-unknown-linux-musl"
+		GO_ARCH="arm64"
+		LAZYGIT_ARCH="arm64"
+		;;
+	x86_64)
+		RUST_TARGET="x86_64-unknown-linux-gnu"
+		MUSL_TARGET="x86_64-unknown-linux-musl"
+		GO_ARCH="amd64"
+		LAZYGIT_ARCH="x86_64"
+		;;
+	*)
+		RUST_TARGET=""
+		MUSL_TARGET=""
+		GO_ARCH=""
+		LAZYGIT_ARCH=""
+		;;
 	esac
 
 	if sel starship && ! command -v starship &>/dev/null; then
@@ -353,6 +379,73 @@ elif [ "$OS" = "Linux" ]; then
 			rm -rf "$tmp"
 		else
 			echo "!! Skipping yazi: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel btop && ! command -v btop &>/dev/null; then
+		if [ -n "$MUSL_TARGET" ]; then
+			echo "==> Installing btop (not in apt)..."
+			tmp="$(mktemp -d)"
+			curl -fsSL "https://github.com/aristocratos/btop/releases/latest/download/btop-${MUSL_TARGET}.tar.gz" |
+				tar -xz -C "$tmp"
+			sudo install -m 755 "$tmp/btop/bin/btop" /usr/local/bin/btop
+			rm -rf "$tmp"
+		else
+			echo "!! Skipping btop: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel gdu && ! command -v gdu &>/dev/null; then
+		if [ -n "$GO_ARCH" ]; then
+			echo "==> Installing gdu (not in apt)..."
+			tmp="$(mktemp -d)"
+			curl -fsSL "https://github.com/dundee/gdu/releases/latest/download/gdu_linux_${GO_ARCH}.tgz" |
+				tar -xz -C "$tmp"
+			sudo install -m 755 "$tmp/gdu_linux_${GO_ARCH}" /usr/local/bin/gdu
+			rm -rf "$tmp"
+		else
+			echo "!! Skipping gdu: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel lazygit && ! command -v lazygit &>/dev/null; then
+		if [ -n "$LAZYGIT_ARCH" ]; then
+			echo "==> Installing lazygit (not in apt)..."
+			# lazygit's release filenames embed the version, so a fixed
+			# .../latest/download/<name> URL doesn't work — look it up.
+			lg_url="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest |
+				grep -o "https://github.com/jesseduffield/lazygit/releases/download/[^\"]*linux_${LAZYGIT_ARCH}\.tar\.gz")"
+			if [ -n "$lg_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$lg_url" | tar -xz -C "$tmp" lazygit
+				sudo install -m 755 "$tmp/lazygit" /usr/local/bin/lazygit
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine lazygit download URL, skipping"
+			fi
+		else
+			echo "!! Skipping lazygit: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel pet && ! command -v pet &>/dev/null; then
+		if [ -n "$GO_ARCH" ]; then
+			echo "==> Installing pet (not in apt)..."
+			# pet's release filenames embed the version too — look it up,
+			# same as lazygit above. It ships .deb packages, so install
+			# via dpkg instead of extracting a tarball manually.
+			pet_url="$(curl -fsSL https://api.github.com/repos/knqyf263/pet/releases/latest |
+				grep -o "https://github.com/knqyf263/pet/releases/download/[^\"]*linux_${GO_ARCH}\.deb")"
+			if [ -n "$pet_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$pet_url" -o "$tmp/pet.deb"
+				sudo dpkg -i "$tmp/pet.deb"
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine pet download URL, skipping"
+			fi
+		else
+			echo "!! Skipping pet: unsupported architecture $(uname -m)"
 		fi
 	fi
 
@@ -397,6 +490,21 @@ fi
 sel yazi-config && link "$DOTFILES_DIR/yazi/keymap.toml" "$HOME/.config/yazi/keymap.toml"
 sel inputrc && link "$DOTFILES_DIR/readline/inputrc" "$HOME/.inputrc"
 sel eza-theme && link "$DOTFILES_DIR/eza/theme.yml" "$HOME/.config/eza/theme.yml"
+
+if sel btop-theme; then
+	link "$DOTFILES_DIR/btop/catppuccin_mocha.theme" "$HOME/.config/btop/themes/catppuccin_mocha.theme"
+	# btop.conf is a plain key=value file it regenerates with defaults for
+	# anything missing, so it's safe to just ensure this one line is set
+	# rather than symlinking (and clobbering) the whole file.
+	btop_conf="$HOME/.config/btop/btop.conf"
+	mkdir -p "$(dirname "$btop_conf")"
+	touch "$btop_conf"
+	if grep -q '^color_theme' "$btop_conf"; then
+		sed -i.bak 's/^color_theme.*/color_theme = "catppuccin_mocha"/' "$btop_conf" && rm -f "$btop_conf.bak"
+	else
+		echo 'color_theme = "catppuccin_mocha"' >>"$btop_conf"
+	fi
+fi
 
 # ---------------------------------------------------------------------------
 # 3. zsh: source our snippet from ~/.zshrc without touching the rest of it

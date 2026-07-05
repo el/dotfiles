@@ -26,6 +26,25 @@ if command -v eza >/dev/null; then
 	alias lt="eza --tree --icons --group-directories-first --level=2"
 fi
 
+# On macOS, Homebrew installs gdu's binary as `gdu-go` (avoids a conflict
+# with coreutils' own gdu/GNU du); on Linux it's already just `gdu`.
+if ! command -v gdu >/dev/null && command -v gdu-go >/dev/null; then
+	alias gdu="gdu-go"
+fi
+
+# pet: Ctrl-S searches your saved command snippets and drops the pick onto
+# the command line (official recommended zsh integration from pet's README).
+if command -v pet >/dev/null; then
+	function pet-select() {
+		BUFFER=$(pet search --query "$LBUFFER")
+		CURSOR=$#BUFFER
+		zle redisplay
+	}
+	zle -N pet-select
+	stty -ixon
+	bindkey '^s' pet-select
+fi
+
 # zsh-syntax-highlighting must be the LAST thing sourced in this file: it
 # wraps existing zle widgets, so anything registered after it won't get
 # highlighted.
