@@ -16,8 +16,8 @@ set -euo pipefail
 
 CATS=("Terminal & Prompt" "File Tools" "Git & Monitoring")
 
-T_CAT=(0 0 0 1 1 1 1 1 2 2 2)
-T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu)
+T_CAT=(0 0 0 1 1 1 1 1 2 2 2 0 1 1 1 1 2 2)
+T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu tldr bat tv jless glow gping bandwhich)
 T_DESC=(
 	"terminal multiplexer — sessions that survive disconnects"
 	"cross-shell prompt, Catppuccin themed"
@@ -30,6 +30,13 @@ T_DESC=(
 	"git TUI — stage, commit, branch, rebase"
 	"system monitor (CPU / mem / net / processes)"
 	"disk usage analyzer"
+	"tealdeer — community cheatsheets for commands"
+	"cat clone with syntax highlighting"
+	"television — general fuzzy finder"
+	"interactive JSON viewer"
+	"markdown reader for the terminal"
+	"ping, but with a live graph"
+	"which process is eating the bandwidth"
 )
 T_RUN=(
 	"tmux new-session -A -s main"
@@ -43,6 +50,13 @@ T_RUN=(
 	"lazygit"
 	"btop"
 	"gdu"
+	"tldr tmux"
+	"bat ~/.zshrc"
+	"tv"
+	'echo "{\"hello\":[\"world\",1,true],\"nested\":{\"key\":\"value\"}}" | jless'
+	"glow"
+	"gping 1.1.1.1"
+	"sudo bandwhich"
 )
 # Tips shown for the highlighted tool. Real newlines separate lines
 # (continuation lines start at column 0 on purpose).
@@ -66,6 +80,18 @@ space stages · c commits · p pushes'
 	'mouse: click to sort and select · Esc opens menu · q quits
 theme: Catppuccin mocha (set by the installer)'
 	'arrows drill in · d deletes · q quits'
+	'community examples for any command: tldr tar · tldr git rebase
+cache refresh: tldr --update (the installer seeds it)'
+	'drop-in cat: syntax highlighting · line numbers · git change markers
+bat -p file for plain output · bat --list-themes to restyle'
+	'type to filter · enter selects · Esc quits
+channels pick the source, e.g. tv files · tv text · tv env'
+	'j/k or arrows move · space collapses · / searches · q quits
+pipe any JSON into it: curl -s ... | jless'
+	'no args = browse markdown files in this directory · glow README.md renders one
+arrows scroll · q quits'
+	'live latency graph · compare hosts: gping site-a.com site-b.com · q quits'
+	'needs sudo (raw sockets) · shows per-process network usage · q quits'
 )
 
 # macOS Homebrew installs gdu as gdu-go (conflicts with coreutils' gdu)

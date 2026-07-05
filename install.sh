@@ -29,12 +29,13 @@ OS="$(uname -s)"
 # ---------------------------------------------------------------------------
 CAT_NAMES=("Terminal & Prompt" "File Tools" "Git & Monitoring" "Tmux" "Zsh" "Other Configs")
 
-ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0)
+ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0 0 1 1 1 1 2 2)
 ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
 	lazygit btop gdu
 	tmux-config tmux-plugins zshrc zsh-plugins
 	yazi-config eza-theme btop-theme inputrc git-editor
-	pet cheat)
+	pet cheat
+	tealdeer bat television jless glow gping bandwhich)
 ITEM_LABELS=(
 	"tmux — terminal multiplexer"
 	"fzf — fuzzy finder"
@@ -58,8 +59,15 @@ ITEM_LABELS=(
 	"git core.editor = micro"
 	"pet — command snippet manager (Ctrl-S to search)"
 	"cheat — interactive guide/launcher for these tools"
+	"tealdeer — tldr cheatsheet pages (command: tldr)"
+	"bat — cat with syntax highlighting"
+	"television — general fuzzy finder TUI (command: tv)"
+	"jless — interactive JSON viewer"
+	"glow — markdown reader"
+	"gping — ping with a live graph"
+	"bandwhich — per-process bandwidth monitor"
 )
-ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
 # Only offer switching the login shell when it isn't already zsh. Defaults
 # to unselected (even under --all): changing the login shell is system-wide
@@ -79,6 +87,14 @@ sel() { # sel <id> — succeeds if that item is selected
 			[ "${ITEM_SEL[$i]}" -eq 1 ]
 			return
 		fi
+	done
+	return 1
+}
+
+any_sel() { # succeeds if any of the given ids is selected
+	local id
+	for id in "$@"; do
+		if sel "$id"; then return 0; fi
 	done
 	return 1
 }
@@ -209,9 +225,17 @@ item_info() { # $1 = item id → one-line note for the info pane
 		tmux | fzf | tree | micro | zsh-plugins) method="apt" ;;
 		nerd-font) method="upstream download + fc-cache" ;;
 		starship) method="official install script" ;;
+		pet | television | glow) method="upstream .deb package" ;;
+		jless) method="upstream release (Linux x86_64 only)" ;;
 		*) method="upstream release binary" ;;
 		esac
 	fi
+	# Some packages install a binary named differently from the item id.
+	local bin="$id"
+	case "$id" in
+	television) bin="tv" ;;
+	tealdeer) bin="tldr" ;;
+	esac
 	case "$id" in
 	nerd-font | zsh-plugins) ;;
 	gdu)
@@ -220,7 +244,7 @@ item_info() { # $1 = item id → one-line note for the info pane
 		fi
 		;;
 	*)
-		if command -v "$id" >/dev/null 2>&1; then installed=" · already installed"; fi
+		if command -v "$bin" >/dev/null 2>&1; then installed=" · already installed"; fi
 		;;
 	esac
 	echo "installs via ${method}${installed}"
@@ -358,7 +382,8 @@ ensure_brew() {
 
 if [ "$OS" = "Darwin" ]; then
 	formulas=""
-	for id in tmux fzf tree micro yazi eza starship lazygit btop gdu pet; do
+	for id in tmux fzf tree micro yazi eza starship lazygit btop gdu pet \
+		bat television tealdeer jless gping bandwhich glow; do
 		sel "$id" && formulas="$formulas $id"
 	done
 	sel zsh-plugins && formulas="$formulas zsh-autosuggestions zsh-syntax-highlighting"
@@ -384,10 +409,11 @@ elif [ "$OS" = "Linux" ]; then
 	sel zsh-plugins && apt_pkgs="$apt_pkgs zsh zsh-autosuggestions zsh-syntax-highlighting"
 	sel switch-shell && apt_pkgs="$apt_pkgs zsh"
 	sel tmux-plugins && apt_pkgs="$apt_pkgs git"
-	if sel starship || sel eza || sel yazi || sel nerd-font || sel btop || sel gdu || sel lazygit || sel pet; then
+	if any_sel starship eza yazi nerd-font btop gdu lazygit pet \
+		bat television tealdeer jless gping bandwhich glow; then
 		apt_pkgs="$apt_pkgs curl ca-certificates"
 	fi
-	if sel yazi || sel nerd-font; then apt_pkgs="$apt_pkgs unzip"; fi
+	if any_sel yazi nerd-font jless; then apt_pkgs="$apt_pkgs unzip"; fi
 	sel nerd-font && apt_pkgs="$apt_pkgs fontconfig"
 
 	if [ -n "$apt_pkgs" ]; then
@@ -396,27 +422,28 @@ elif [ "$OS" = "Linux" ]; then
 		sudo apt-get install -y $apt_pkgs
 	fi
 
-	# Three different arch-naming conventions across ecosystems: Rust gnu
-	# target triples (eza/yazi), Rust musl triples (btop), and Go-style
-	# arch strings (gdu, lazygit — which oddly uses "x86_64" not "amd64").
+	# Different arch-naming conventions across ecosystems: Rust gnu target
+	# triples (eza/yazi/bat/television), Rust musl triples (btop/bandwhich/
+	# tealdeer), Go-style arch strings (gdu uses "amd64"), and plain
+	# arm64/x86_64 (lazygit, gping, glow).
 	case "$(uname -m)" in
 	aarch64 | arm64)
 		RUST_TARGET="aarch64-unknown-linux-gnu"
 		MUSL_TARGET="aarch64-unknown-linux-musl"
 		GO_ARCH="arm64"
-		LAZYGIT_ARCH="arm64"
+		BIN_ARCH="arm64"
 		;;
 	x86_64)
 		RUST_TARGET="x86_64-unknown-linux-gnu"
 		MUSL_TARGET="x86_64-unknown-linux-musl"
 		GO_ARCH="amd64"
-		LAZYGIT_ARCH="x86_64"
+		BIN_ARCH="x86_64"
 		;;
 	*)
 		RUST_TARGET=""
 		MUSL_TARGET=""
 		GO_ARCH=""
-		LAZYGIT_ARCH=""
+		BIN_ARCH=""
 		;;
 	esac
 
@@ -478,12 +505,12 @@ elif [ "$OS" = "Linux" ]; then
 	fi
 
 	if sel lazygit && ! command -v lazygit &>/dev/null; then
-		if [ -n "$LAZYGIT_ARCH" ]; then
+		if [ -n "$BIN_ARCH" ]; then
 			echo "==> Installing lazygit (not in apt)..."
 			# lazygit's release filenames embed the version, so a fixed
 			# .../latest/download/<name> URL doesn't work — look it up.
 			lg_url="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest |
-				grep -o "https://github.com/jesseduffield/lazygit/releases/download/[^\"]*linux_${LAZYGIT_ARCH}\.tar\.gz")"
+				grep -o "https://github.com/jesseduffield/lazygit/releases/download/[^\"]*linux_${BIN_ARCH}\.tar\.gz")"
 			if [ -n "$lg_url" ]; then
 				tmp="$(mktemp -d)"
 				curl -fsSL "$lg_url" | tar -xz -C "$tmp" lazygit
@@ -494,6 +521,126 @@ elif [ "$OS" = "Linux" ]; then
 			fi
 		else
 			echo "!! Skipping lazygit: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel bat && ! command -v bat &>/dev/null; then
+		if [ -n "$RUST_TARGET" ]; then
+			# apt has bat, but Debian installs the binary as "batcat" —
+			# upstream keeps the real name.
+			echo "==> Installing bat (apt names it batcat)..."
+			bat_url="$(curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest |
+				grep -o "https://github.com/sharkdp/bat/releases/download/[^\"]*-${RUST_TARGET}\.tar\.gz" | head -1)"
+			if [ -n "$bat_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$bat_url" | tar -xz -C "$tmp"
+				sudo install -m 755 "$(find "$tmp" -type f -name bat | head -1)" /usr/local/bin/bat
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine bat download URL, skipping"
+			fi
+		else
+			echo "!! Skipping bat: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel television && ! command -v tv &>/dev/null; then
+		if [ -n "$RUST_TARGET" ]; then
+			echo "==> Installing television (not in apt)..."
+			tv_url="$(curl -fsSL https://api.github.com/repos/alexpasmantier/television/releases/latest |
+				grep -o "https://github.com/alexpasmantier/television/releases/download/[^\"]*-${RUST_TARGET}\.deb" | head -1)"
+			if [ -n "$tv_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$tv_url" -o "$tmp/tv.deb"
+				sudo dpkg -i "$tmp/tv.deb"
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine television download URL, skipping"
+			fi
+		else
+			echo "!! Skipping television: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel tealdeer && ! command -v tldr &>/dev/null; then
+		if [ -n "$RUST_TARGET" ]; then
+			echo "==> Installing tealdeer (not in apt)..."
+			# Ships bare static binaries with fixed names, e.g.
+			# tealdeer-linux-aarch64-musl
+			tmp="$(mktemp -d)"
+			curl -fsSL "https://github.com/tealdeer-rs/tealdeer/releases/latest/download/tealdeer-linux-${RUST_TARGET%%-*}-musl" -o "$tmp/tldr"
+			sudo install -m 755 "$tmp/tldr" /usr/local/bin/tldr
+			rm -rf "$tmp"
+		else
+			echo "!! Skipping tealdeer: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel jless && ! command -v jless &>/dev/null; then
+		if [ "$(uname -m)" = "x86_64" ]; then
+			echo "==> Installing jless (not in apt)..."
+			jl_url="$(curl -fsSL https://api.github.com/repos/PaulJuliusMartinez/jless/releases/latest |
+				grep -o "https://github.com/PaulJuliusMartinez/jless/releases/download/[^\"]*x86_64-unknown-linux-gnu\.zip" | head -1)"
+			if [ -n "$jl_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$jl_url" -o "$tmp/jless.zip"
+				unzip -q "$tmp/jless.zip" -d "$tmp"
+				sudo install -m 755 "$(find "$tmp" -type f -name jless | head -1)" /usr/local/bin/jless
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine jless download URL, skipping"
+			fi
+		else
+			echo "!! Skipping jless: upstream ships no Linux $(uname -m) build"
+		fi
+	fi
+
+	if sel glow && ! command -v glow &>/dev/null; then
+		if [ -n "$BIN_ARCH" ]; then
+			echo "==> Installing glow (not in apt)..."
+			glow_url="$(curl -fsSL https://api.github.com/repos/charmbracelet/glow/releases/latest |
+				grep -o "https://github.com/charmbracelet/glow/releases/download/[^\"]*_Linux_${BIN_ARCH}\.tar\.gz" | head -1)"
+			if [ -n "$glow_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$glow_url" | tar -xz -C "$tmp"
+				sudo install -m 755 "$(find "$tmp" -type f -name glow | head -1)" /usr/local/bin/glow
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine glow download URL, skipping"
+			fi
+		else
+			echo "!! Skipping glow: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel gping && ! command -v gping &>/dev/null; then
+		if [ -n "$BIN_ARCH" ]; then
+			echo "==> Installing gping (not in apt)..."
+			tmp="$(mktemp -d)"
+			curl -fsSL "https://github.com/orf/gping/releases/latest/download/gping-Linux-musl-${BIN_ARCH}.tar.gz" |
+				tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name gping | head -1)" /usr/local/bin/gping
+			rm -rf "$tmp"
+		else
+			echo "!! Skipping gping: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel bandwhich && ! command -v bandwhich &>/dev/null; then
+		if [ -n "$MUSL_TARGET" ]; then
+			echo "==> Installing bandwhich (not in apt)..."
+			bw_url="$(curl -fsSL https://api.github.com/repos/imsnif/bandwhich/releases/latest |
+				grep -o "https://github.com/imsnif/bandwhich/releases/download/[^\"]*-${MUSL_TARGET}\.tar\.gz" | head -1)"
+			if [ -n "$bw_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$bw_url" | tar -xz -C "$tmp"
+				sudo install -m 755 "$(find "$tmp" -type f -name bandwhich | head -1)" /usr/local/bin/bandwhich
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine bandwhich download URL, skipping"
+			fi
+		else
+			echo "!! Skipping bandwhich: unsupported architecture $(uname -m)"
 		fi
 	fi
 
@@ -534,6 +681,12 @@ elif [ "$OS" = "Linux" ]; then
 else
 	echo "!! Unsupported OS: $OS" >&2
 	exit 1
+fi
+
+# tealdeer errors on first use until its page cache exists — seed it now
+if sel tealdeer && command -v tldr &>/dev/null; then
+	echo "==> Seeding tldr page cache..."
+	tldr --update >/dev/null 2>&1 || true
 fi
 
 # ---------------------------------------------------------------------------

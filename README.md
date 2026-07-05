@@ -59,17 +59,20 @@ before being replaced by a symlink). It detects the OS:
 
 - **macOS**: packages via [Homebrew](https://brew.sh) (installed if missing)
 - **Linux**: `tmux`, `fzf`, `tree`, `micro`, `zsh`, and the zsh plugins via
-  `apt`; `starship`, `eza`, `yazi`, `btop`, `gdu`, `lazygit`, and the Nerd
-  Font aren't reliably in apt repos (or drift across distro versions), so
-  those are fetched from upstream instead (official installer for starship,
-  prebuilt release binaries for the rest, font zip + `fc-cache`)
+  `apt`; everything else isn't reliably in apt repos (or drifts across
+  distro versions — Debian even renames `bat` to `batcat`), so those are
+  fetched from upstream instead (official installer for starship, `.deb`
+  packages or prebuilt release binaries for the rest, font zip +
+  `fc-cache`). jless ships no Linux arm64 build and is skipped on ARM
+  machines like a Raspberry Pi.
 
 What it sets up (each individually selectable in the menu):
 
-- **Terminal & Prompt**: `tmux`, `starship`, `pet`, `cheat` (see below), the
-  JetBrains Mono Nerd Font
-- **File Tools**: `fzf`, `tree`, `micro`, `yazi`, `eza`
-- **Git & Monitoring**: `lazygit`, `btop`, `gdu`
+- **Terminal & Prompt**: `tmux`, `starship`, `pet`, `cheat` (see below),
+  `tealdeer`, the JetBrains Mono Nerd Font
+- **File Tools**: `fzf`, `tree`, `micro`, `yazi`, `eza`, `bat`,
+  `television`, `jless`, `glow`
+- **Git & Monitoring**: `lazygit`, `btop`, `gdu`, `gping`, `bandwhich`
 - Symlinks: `tmux/tmux.conf` + `tmux/scripts/` -> `~/.config/tmux/`,
   `yazi/keymap.toml` -> `~/.config/yazi/`, `readline/inputrc` ->
   `~/.inputrc`, `eza/theme.yml` -> `~/.config/eza/`,
@@ -131,6 +134,13 @@ back to the menu when the tool exits.
 | [`btop`](https://github.com/aristocratos/btop) | System monitor (CPU/mem/disk/net/proc), Catppuccin themed, mouse support |
 | `gdu` | Disk usage analyzer with mouse support (aliased from `gdu-go` on macOS) |
 | [`pet`](https://github.com/knqyf263/pet) | Command snippet manager — save/search reusable commands. `pet new` to save one, or press **Ctrl-S** anywhere in the shell to search (unrelated to tmux's `` ` `` `Ctrl-s`, which needs the prefix key first) |
+| [`bat`](https://github.com/sharkdp/bat) | `cat` with syntax highlighting, line numbers, and git markers |
+| [`tv`](https://github.com/alexpasmantier/television) | television — fast general fuzzy finder; channels pick the source (`tv files`, `tv text`, `tv env`, …) |
+| [`tldr`](https://github.com/tealdeer-rs/tealdeer) | tealdeer — community cheatsheet pages for any command (`tldr tar`); the installer seeds the cache |
+| [`jless`](https://github.com/PaulJuliusMartinez/jless) | Interactive JSON viewer — pipe anything into it (no Linux ARM build) |
+| [`gping`](https://github.com/orf/gping) | Ping with a live latency graph; compare hosts side by side |
+| [`bandwhich`](https://github.com/imsnif/bandwhich) | Per-process bandwidth monitor (needs `sudo`) |
+| [`glow`](https://github.com/charmbracelet/glow) | Markdown reader — `glow README.md`, or no args to browse |
 
 ## tmux cheat sheet
 
