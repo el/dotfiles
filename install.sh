@@ -29,12 +29,12 @@ OS="$(uname -s)"
 # ---------------------------------------------------------------------------
 CAT_NAMES=("Terminal & Prompt" "File Tools" "Git & Monitoring" "Tmux" "Zsh" "Other Configs")
 
-ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0)
+ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0)
 ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
 	lazygit btop gdu
 	tmux-config tmux-plugins zshrc zsh-plugins
 	yazi-config eza-theme btop-theme inputrc git-editor
-	pet)
+	pet cheat)
 ITEM_LABELS=(
 	"tmux — terminal multiplexer"
 	"fzf — fuzzy finder"
@@ -57,8 +57,9 @@ ITEM_LABELS=(
 	"inputrc (arrow-key history search)"
 	"git core.editor = micro"
 	"pet — command snippet manager (Ctrl-S to search)"
+	"cheat — interactive guide/launcher for these tools"
 )
-ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
 # Only offer switching the login shell when it isn't already zsh. Defaults
 # to unselected (even under --all): changing the login shell is system-wide
@@ -490,6 +491,7 @@ fi
 sel yazi-config && link "$DOTFILES_DIR/yazi/keymap.toml" "$HOME/.config/yazi/keymap.toml"
 sel inputrc && link "$DOTFILES_DIR/readline/inputrc" "$HOME/.inputrc"
 sel eza-theme && link "$DOTFILES_DIR/eza/theme.yml" "$HOME/.config/eza/theme.yml"
+sel cheat && link "$DOTFILES_DIR/cheat/cheat" "$HOME/.local/bin/cheat"
 
 if sel btop-theme; then
 	link "$DOTFILES_DIR/btop/catppuccin_mocha.theme" "$HOME/.config/btop/themes/catppuccin_mocha.theme"
@@ -584,6 +586,7 @@ cat <<'EOF'
 
 Next steps:
   - Open a new terminal (or run: source ~/.zshrc)
+  - Run "cheat" — an interactive, tabbed guide to everything installed
 EOF
 if [ "$SHELL_SWITCHED" -eq 1 ]; then
 	echo "  - Default shell is now zsh — log out and back in for it to take effect"

@@ -57,7 +57,8 @@ before being replaced by a symlink). It detects the OS:
 
 What it sets up (each individually selectable in the menu):
 
-- **Terminal & Prompt**: `tmux`, `starship`, `pet`, the JetBrains Mono Nerd Font
+- **Terminal & Prompt**: `tmux`, `starship`, `pet`, `cheat` (see below), the
+  JetBrains Mono Nerd Font
 - **File Tools**: `fzf`, `tree`, `micro`, `yazi`, `eza`
 - **Git & Monitoring**: `lazygit`, `btop`, `gdu`
 - Symlinks: `tmux/tmux.conf` + `tmux/scripts/` -> `~/.config/tmux/`,
@@ -95,6 +96,7 @@ never gets sourced.
 | `readline/inputrc` | Arrow keys do prefix-based history search |
 | `eza/theme.yml` | [Catppuccin mocha (mauve)](https://github.com/catppuccin/eza) theme for `ls`/`ll`/`la`/`lt` ([eza](https://eza.rocks)) |
 | `btop/catppuccin_mocha.theme` | [Catppuccin mocha](https://github.com/catppuccin/btop) theme for [btop](https://github.com/aristocratos/btop) |
+| `cheat/cheat` | The `cheat` command — interactive guide/launcher for all these tools (symlinked to `~/.local/bin/cheat`) |
 | `bootstrap.sh` | `curl \| bash` entry point — clones/updates the repo, then runs `install.sh` |
 | `install.sh` | Interactive installer (macOS via Homebrew, Linux via apt + upstream installers) |
 
@@ -108,6 +110,11 @@ never gets sourced.
 | `lt` | `eza --tree --icons --group-directories-first --level=2` |
 
 ## Other CLI apps
+
+Run **`cheat`** for an interactive version of this list: tabs per category
+(←/→ to switch), a table of the tools that are actually installed (↑/↓ to
+select), tips for the highlighted tool, and enter to launch it — you come
+back to the menu when the tool exits.
 
 | Command | What |
 |---|---|

@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+# cheat — interactive guide & launcher for the CLI tools installed by the
+# dotfiles repo.
+#
+#   ←/→ or h/l   switch category tab
+#   ↑/↓ or k/j   move between tools
+#   enter        run the highlighted tool (you return here when it exits)
+#   q            quit
+#
+# Only tools actually present on PATH are listed; categories with nothing
+# installed don't get a tab.
+#
+# Kept bash-3.2 compatible (stock macOS bash): no associative arrays,
+# no fractional read timeouts.
+set -euo pipefail
+
+CATS=("Terminal & Prompt" "File Tools" "Git & Monitoring")
+
+T_CAT=(0 0 0 1 1 1 1 1 2 2 2)
+T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu)
+T_DESC=(
+	"terminal multiplexer — sessions that survive disconnects"
+	"cross-shell prompt, Catppuccin themed"
+	"command snippet manager"
+	"fuzzy finder — filter any list by typing"
+	"directory tree listings"
+	"friendly terminal text editor"
+	"file manager with previews"
+	"modern, colorful ls"
+	"git TUI — stage, commit, branch, rebase"
+	"system monitor (CPU / mem / net / processes)"
+	"disk usage analyzer"
+)
+T_RUN=(
+	"tmux new-session -A -s main"
+	"starship explain"
+	"pet exec"
+	"fzf"
+	"tree -L 2 -C | less -R"
+	"micro"
+	"yazi"
+	"eza -la --icons --group-directories-first --git --header"
+	"lazygit"
+	"btop"
+	"gdu"
+)
+# Tips shown for the highlighted tool. Real newlines separate lines
+# (continuation lines start at column 0 on purpose).
+T_TIPS=(
+	'prefix is ` (backtick) · ` Space command palette · ` F fuzzy sessions
+` o yazi sidebar · ` e copy hints · mouse: click panes, drag borders
+enter attaches to (or creates) the session named "main"'
+	'config lives in the dotfiles repo: zsh/starship.toml
+enter prints what each part of your current prompt means'
+	'pet new saves a command · Ctrl-S in the shell searches snippets
+enter picks a snippet and runs it (pet exec)'
+	'type to filter · Tab multi-select · Esc cancels
+feed it any list, e.g. shell history or a file listing'
+	'opens in less — q to quit · -L <n> controls depth'
+	'Ctrl-s save · Ctrl-q quit · Ctrl-e command bar · mouse works'
+	'arrows or mouse to navigate · q quits
+in the tmux sidebar (` o): Ctrl-o opens file in editor · Ctrl-g cds the shell'
+	'day-to-day via aliases: ls · ll (long) · la (all) · lt (tree)'
+	'? shows every keybinding · panels are mouse-clickable
+space stages · c commits · p pushes'
+	'mouse: click to sort and select · Esc opens menu · q quits
+theme: Catppuccin mocha (set by the installer)'
+	'arrows drill in · d deletes · q quits'
+)
+
+# macOS Homebrew installs gdu as gdu-go (conflicts with coreutils' gdu)
+if ! command -v gdu >/dev/null && command -v gdu-go >/dev/null; then
+	T_RUN[10]="gdu-go"
+fi
+
+tool_avail() {
+	if [ "${T_NAME[$1]}" = "gdu" ]; then
+		command -v gdu >/dev/null || command -v gdu-go >/dev/null
+	else
+		command -v "${T_NAME[$1]}" >/dev/null
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# Build the visible-tool lists (availability-filtered)
+# ---------------------------------------------------------------------------
+VIS=("" "" "")
+for ((i = 0; i < ${#T_NAME[@]}; i++)); do
+	if tool_avail "$i"; then
+		VIS[${T_CAT[$i]}]="${VIS[${T_CAT[$i]}]} $i"
+	fi
+done
+
+VTABS=""
+for ((c = 0; c < ${#CATS[@]}; c++)); do
+	[ -n "${VIS[$c]// /}" ] && VTABS="$VTABS $c"
+done
+if [ -z "$VTABS" ]; then
+	echo "cheat: none of the dotfiles tools are on PATH — run install.sh first." >&2
+	exit 1
+fi
+
+# NB: `set --` replaces a function's positional parameters, so any argument
+# needed after it must be copied to a local first.
+ntabs() {
+	set -- $VTABS
+	echo $#
+}
+tab_at() {
+	local n="$1"
+	set -- $VTABS
+	shift "$n"
+	echo "$1"
+}
+vis_count() {
+	set -- ${VIS[$1]}
+	echo $#
+}
+vis_at() {
+	local n="$2" list="${VIS[$1]}"
+	set -- $list
+	shift "$n"
+	echo "$1"
+}
+
+# ---------------------------------------------------------------------------
+# TUI
+# ---------------------------------------------------------------------------
+KEY=""
+KEY_UP=$'\x1b[A' KEY_DOWN=$'\x1b[B' KEY_RIGHT=$'\x1b[C' KEY_LEFT=$'\x1b[D'
+
+read_key() {
+	local k="" rest=""
+	IFS= read -rsn1 k </dev/tty || {
+		KEY="q"
+		return
+	}
+	if [ "$k" = $'\x1b' ]; then
+		IFS= read -rsn2 -t 1 rest </dev/tty || true
+		k="$k$rest"
+	fi
+	KEY="$k"
+}
+
+draw() { # $1 = active category, $2 = active row
+	local c i n ti line
+	{
+		printf '\033[H\033[2J'
+		printf '  \033[1mcheat\033[0m \033[2m— your terminal toolkit\033[0m\n\n  '
+		for c in $VTABS; do
+			if [ "$c" -eq "$1" ]; then
+				printf '\033[7;1m %s \033[0m  ' "${CATS[$c]}"
+			else
+				printf '\033[2m %s \033[0m  ' "${CATS[$c]}"
+			fi
+		done
+		printf '\n\n'
+		printf '   \033[2m%-9s %s\033[0m\n' "TOOL" "WHAT IT IS"
+		n=0
+		for i in ${VIS[$1]}; do
+			if [ "$n" -eq "$2" ]; then
+				printf ' \033[1;36m> %-9s %s\033[0m\n' "${T_NAME[$i]}" "${T_DESC[$i]}"
+			else
+				printf '   %-9s %s\n' "${T_NAME[$i]}" "${T_DESC[$i]}"
+			fi
+			n=$((n + 1))
+		done
+		ti=$(vis_at "$1" "$2")
+		printf '\n  \033[2m─ tips ──────────────────────────────────────────\033[0m\n'
+		while IFS= read -r line; do
+			printf '  \033[2m%s\033[0m\n' "$line"
+		done <<<"${T_TIPS[$ti]}"
+		printf '\n  \033[2m←/→ tabs · ↑/↓ select · enter run · q quit\033[0m\n'
+	} >/dev/tty
+}
+
+run_tool() { # $1 = tool index
+	printf '\033[?25h\033[H\033[2J' >/dev/tty
+	eval "${T_RUN[$1]}" </dev/tty >/dev/tty 2>&1 || true
+	printf '\n\033[7m Press any key to return to cheat \033[0m' >/dev/tty
+	IFS= read -rsn1 _ </dev/tty || true
+	printf '\033[?25l' >/dev/tty
+}
+
+trap 'printf "\033[?25h" >/dev/tty 2>/dev/null || true' EXIT
+printf '\033[?25l' >/dev/tty
+
+tabpos=0 row=0
+while :; do
+	cat_idx=$(tab_at "$tabpos")
+	count=$(vis_count "$cat_idx")
+	[ "$row" -ge "$count" ] && row=$((count - 1))
+	draw "$cat_idx" "$row"
+	read_key
+	case "$KEY" in
+	"$KEY_LEFT" | h)
+		tabpos=$((tabpos - 1))
+		[ "$tabpos" -lt 0 ] && tabpos=$(($(ntabs) - 1))
+		row=0
+		;;
+	"$KEY_RIGHT" | l)
+		tabpos=$((tabpos + 1))
+		[ "$tabpos" -ge "$(ntabs)" ] && tabpos=0
+		row=0
+		;;
+	"$KEY_UP" | k)
+		row=$((row - 1))
+		[ "$row" -lt 0 ] && row=$((count - 1))
+		;;
+	"$KEY_DOWN" | j)
+		row=$((row + 1))
+		[ "$row" -ge "$count" ] && row=0
+		;;
+	"")
+		run_tool "$(vis_at "$cat_idx" "$row")"
+		;;
+	q | Q)
+		break
+		;;
+	esac
+done
+printf '\033[?25h\033[H\033[2J' >/dev/tty

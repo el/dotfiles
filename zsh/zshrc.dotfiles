@@ -4,6 +4,12 @@
 export EDITOR="micro"
 export VISUAL="micro"
 
+# ~/.local/bin holds the dotfiles' own helper tools (e.g. cheat)
+case ":$PATH:" in
+*":$HOME/.local/bin:"*) ;;
+*) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
 # Shared-plugin dir: Homebrew's share on macOS, /usr/share on Linux (apt)
 if command -v brew >/dev/null; then
 	_zsh_plugins="$(brew --prefix)/share"
