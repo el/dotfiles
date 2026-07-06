@@ -15,8 +15,10 @@
 #
 # macOS: packages via Homebrew (installed if missing).
 # Linux: packages via apt where reliable; starship, eza, yazi, btop, gdu,
-# lazygit, and the Nerd Font aren't reliably in apt repos (or drift across
-# distro versions), so those come from upstream releases/installers instead.
+# lazygit, fastfetch, serpl, and the Nerd Font aren't reliably in apt repos
+# (or drift across distro versions), so those come from upstream
+# releases/installers instead. toolong has no native package anywhere, so
+# it's installed via pipx on both OSes.
 #
 # Kept bash-3.2 compatible (stock macOS bash): no associative arrays,
 # no fractional read timeouts.
@@ -30,14 +32,15 @@ OS="$(uname -s)"
 # ---------------------------------------------------------------------------
 CAT_NAMES=("Terminal & Prompt" "File Tools" "Git & Monitoring" "Tmux" "Zsh" "Other Configs")
 
-ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0 0 1 1 1 1 2 2 0 0)
+ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0 0 1 1 1 1 2 2 0 0 2 1 1 0)
 ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
 	lazygit btop gdu
 	tmux-config tmux-plugins zshrc zsh-plugins
 	yazi-config eza-theme btop-theme inputrc git-editor
 	pet cheat
 	tealdeer bat television jless glow gping bandwhich
-	zoxide atuin)
+	zoxide atuin
+	fastfetch toolong serpl weather)
 ITEM_LABELS=(
 	"tmux — terminal multiplexer"
 	"fzf — fuzzy finder (powers the tmux-fzf and extrakto tmux plugins)"
@@ -70,8 +73,12 @@ ITEM_LABELS=(
 	"bandwhich — per-process bandwidth monitor"
 	"zoxide — smarter cd that learns your habits"
 	"atuin — searchable shell history (SQLite-backed, replaces Ctrl-R)"
+	"fastfetch — system info display (like neofetch, much faster)"
+	"toolong — terminal log viewer/tailer (command: tl)"
+	"serpl — interactive terminal search & replace"
+	"weather — forecast via wttr.in (command: weather)"
 )
-ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
 # These start unselected (opt-in via the menu; --all also skips them).
 DEFAULT_OFF="fzf tree lazygit tealdeer glow zoxide atuin"
@@ -189,6 +196,10 @@ item_info() { # $1 = item id → one-line note for the info pane
 		echo "symlink → ~/.local/bin/cheat"
 		return
 		;;
+	weather)
+		echo "symlink → ~/.local/bin/weather"
+		return
+		;;
 	tmux-config)
 		echo "symlinks → ~/.config/tmux/tmux.conf + scripts/"
 		return
@@ -230,6 +241,7 @@ item_info() { # $1 = item id → one-line note for the info pane
 	if [ "$OS" = "Darwin" ]; then
 		case "$id" in
 		nerd-font) method="Homebrew cask" ;;
+		toolong) method="pipx (Python package)" ;;
 		*) method="Homebrew" ;;
 		esac
 	else
@@ -239,6 +251,8 @@ item_info() { # $1 = item id → one-line note for the info pane
 		starship) method="official install script" ;;
 		pet | television | glow) method="upstream .deb package" ;;
 		jless) method="upstream release (Linux x86_64 only)" ;;
+		fastfetch) method="upstream .deb package" ;;
+		toolong) method="pipx (Python package)" ;;
 		*) method="upstream release binary" ;;
 		esac
 	fi
@@ -247,6 +261,7 @@ item_info() { # $1 = item id → one-line note for the info pane
 	case "$id" in
 	television) bin="tv" ;;
 	tealdeer) bin="tldr" ;;
+	toolong) bin="tl" ;;
 	esac
 	case "$id" in
 	nerd-font | zsh-plugins) ;;
@@ -395,7 +410,8 @@ ensure_brew() {
 if [ "$OS" = "Darwin" ]; then
 	formulas=""
 	for id in tmux fzf tree micro yazi eza starship lazygit btop gdu pet \
-		bat television tealdeer jless gping bandwhich glow zoxide atuin; do
+		bat television tealdeer jless gping bandwhich glow zoxide atuin \
+		fastfetch serpl; do
 		sel "$id" && formulas="$formulas $id"
 	done
 	sel zsh-plugins && formulas="$formulas zsh-autosuggestions zsh-syntax-highlighting"
@@ -412,6 +428,14 @@ if [ "$OS" = "Darwin" ]; then
 		fi
 	fi
 
+	# toolong has no Homebrew formula (it's a Textualize Python TUI) —
+	# install it via pipx instead, same as upstream recommends.
+	if sel toolong && ! command -v tl &>/dev/null; then
+		echo "==> Installing toolong (pipx)..."
+		brew list pipx &>/dev/null || brew install pipx
+		pipx install toolong
+	fi
+
 elif [ "$OS" = "Linux" ]; then
 	apt_pkgs=""
 	for id in tmux fzf tree micro; do
@@ -421,8 +445,10 @@ elif [ "$OS" = "Linux" ]; then
 	sel zsh-plugins && apt_pkgs="$apt_pkgs zsh zsh-autosuggestions zsh-syntax-highlighting"
 	sel switch-shell && apt_pkgs="$apt_pkgs zsh"
 	sel tmux-plugins && apt_pkgs="$apt_pkgs git"
+	sel toolong && apt_pkgs="$apt_pkgs pipx"
 	if any_sel starship eza yazi nerd-font btop gdu lazygit pet \
-		bat television tealdeer jless gping bandwhich glow zoxide atuin; then
+		bat television tealdeer jless gping bandwhich glow zoxide atuin \
+		fastfetch serpl weather; then
 		apt_pkgs="$apt_pkgs curl ca-certificates"
 	fi
 	if any_sel yazi nerd-font jless; then apt_pkgs="$apt_pkgs unzip"; fi
@@ -436,26 +462,29 @@ elif [ "$OS" = "Linux" ]; then
 
 	# Different arch-naming conventions across ecosystems: Rust gnu target
 	# triples (eza/yazi/bat/television), Rust musl triples (btop/bandwhich/
-	# tealdeer), Go-style arch strings (gdu uses "amd64"), and plain
-	# arm64/x86_64 (lazygit, gping, glow).
+	# tealdeer), Go-style arch strings (gdu uses "amd64"), plain arm64/x86_64
+	# (lazygit, gping, glow, serpl), and fastfetch's own aarch64/amd64 pair.
 	case "$(uname -m)" in
 	aarch64 | arm64)
 		RUST_TARGET="aarch64-unknown-linux-gnu"
 		MUSL_TARGET="aarch64-unknown-linux-musl"
 		GO_ARCH="arm64"
 		BIN_ARCH="arm64"
+		FASTFETCH_ARCH="aarch64"
 		;;
 	x86_64)
 		RUST_TARGET="x86_64-unknown-linux-gnu"
 		MUSL_TARGET="x86_64-unknown-linux-musl"
 		GO_ARCH="amd64"
 		BIN_ARCH="x86_64"
+		FASTFETCH_ARCH="amd64"
 		;;
 	*)
 		RUST_TARGET=""
 		MUSL_TARGET=""
 		GO_ARCH=""
 		BIN_ARCH=""
+		FASTFETCH_ARCH=""
 		;;
 	esac
 
@@ -710,6 +739,45 @@ elif [ "$OS" = "Linux" ]; then
 		fi
 	fi
 
+	if sel fastfetch && ! command -v fastfetch &>/dev/null; then
+		if [ -n "$FASTFETCH_ARCH" ]; then
+			echo "==> Installing fastfetch (not reliably in apt across distros)..."
+			tmp="$(mktemp -d)"
+			curl -fsSL "https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-${FASTFETCH_ARCH}.deb" -o "$tmp/fastfetch.deb"
+			sudo dpkg -i "$tmp/fastfetch.deb"
+			rm -rf "$tmp"
+		else
+			echo "!! Skipping fastfetch: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel serpl && ! command -v serpl &>/dev/null; then
+		if [ -n "$BIN_ARCH" ]; then
+			echo "==> Installing serpl (not in apt)..."
+			# serpl's release filenames embed the version, same as lazygit/pet
+			# above — look it up rather than guessing.
+			serpl_url="$(curl -fsSL https://api.github.com/repos/yassinebridi/serpl/releases/latest |
+				grep -o "https://github.com/yassinebridi/serpl/releases/download/[^\"]*-linux-${BIN_ARCH}\.tar\.gz")"
+			if [ -n "$serpl_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$serpl_url" | tar -xz -C "$tmp"
+				sudo install -m 755 "$(find "$tmp" -type f -name serpl | head -1)" /usr/local/bin/serpl
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine serpl download URL, skipping"
+			fi
+		else
+			echo "!! Skipping serpl: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	# toolong has no native Linux package — install via pipx (apt package
+	# added to apt_pkgs above), same as upstream recommends.
+	if sel toolong && ! command -v tl &>/dev/null; then
+		echo "==> Installing toolong (pipx)..."
+		pipx install toolong
+	fi
+
 	if sel nerd-font; then
 		font_dir="$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
 		if [ ! -d "$font_dir" ]; then
@@ -758,6 +826,7 @@ sel yazi-config && link "$DOTFILES_DIR/yazi/keymap.toml" "$HOME/.config/yazi/key
 sel inputrc && link "$DOTFILES_DIR/readline/inputrc" "$HOME/.inputrc"
 sel eza-theme && link "$DOTFILES_DIR/eza/theme.yml" "$HOME/.config/eza/theme.yml"
 sel cheat && link "$DOTFILES_DIR/cheat/cheat" "$HOME/.local/bin/cheat"
+sel weather && link "$DOTFILES_DIR/weather/weather" "$HOME/.local/bin/weather"
 
 if sel btop-theme; then
 	link "$DOTFILES_DIR/btop/catppuccin_mocha.theme" "$HOME/.config/btop/themes/catppuccin_mocha.theme"

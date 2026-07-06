@@ -16,8 +16,8 @@ set -euo pipefail
 
 CATS=("Terminal & Prompt" "File Tools" "Git & Monitoring")
 
-T_CAT=(0 0 0 1 1 1 1 1 2 2 2 0 1 1 1 1 2 2 0 0)
-T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu tldr bat tv jless glow gping bandwhich zoxide atuin)
+T_CAT=(0 0 0 1 1 1 1 1 2 2 2 0 1 1 1 1 2 2 0 0 2 1 1 0)
+T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu tldr bat tv jless glow gping bandwhich zoxide atuin fastfetch tl serpl weather)
 T_DESC=(
 	"terminal multiplexer — sessions that survive disconnects"
 	"cross-shell prompt, Catppuccin themed"
@@ -39,6 +39,10 @@ T_DESC=(
 	"which process is eating the bandwidth"
 	"smarter cd that learns your habits"
 	"searchable shell history (replaces Ctrl-R)"
+	"system info display — like neofetch, much faster"
+	"terminal log viewer/tailer — search, tail, merge, JSONL"
+	"interactive terminal search & replace across a directory"
+	"quick forecast via wttr.in"
 )
 T_RUN=(
 	"tmux new-session -A -s main"
@@ -61,6 +65,10 @@ T_RUN=(
 	"sudo bandwhich"
 	"zoxide query -i"
 	"atuin search -i"
+	"fastfetch"
+	'f=$(mktemp); printf "%s\n" "10:41:02 INFO  server started on :8080" "10:41:05 WARN  slow query (812ms)" "10:41:09 ERROR connection reset by peer" "10:41:10 INFO  retrying..." > "$f"; tl "$f"; rm -f "$f"'
+	'd=$(mktemp -d); echo "hello world, hello there" > "$d/demo.txt"; (cd "$d" && serpl); rm -rf "$d"'
+	"weather"
 )
 # Tips shown for the highlighted tool. Real newlines separate lines
 # (continuation lines start at column 0 on purpose).
@@ -100,6 +108,14 @@ arrows scroll · q quits'
 zi opens an interactive picker · doesnt touch plain cd'
 	'day-to-day: Ctrl-R in the shell opens fuzzy history search
 enter here runs the same search standalone · sync setup: atuin.sh'
+	'no args = full info card · try fastfetch --logo none for a plain layout
+config: ~/.config/fastfetch/config.jsonc (auto-created on first run)'
+	'tl <file> to open a real log · merges multiple files, supports JSONL too
+this demo opens a throwaway file with a few sample lines · q quits'
+	'type a search pattern, then a replacement · review matches, apply selectively
+this demo runs in a scratch temp dir so nothing in this repo is touched · q/Esc quits'
+	'weather (auto-detects your location via IP) · weather Paris for a specific city
+plain-text data from wttr.in over HTTP — no API key needed'
 )
 
 # macOS Homebrew installs gdu as gdu-go (conflicts with coreutils' gdu)

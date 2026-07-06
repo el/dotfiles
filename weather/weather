@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# weather — quick terminal forecast via wttr.in
+#
+#   weather            forecast for your current location (IP geolocation)
+#   weather Paris       forecast for the given city
+#   weather New York     multi-word names: just pass them as separate args
+set -euo pipefail
+
+city="$*"
+curl -fsSL "https://wttr.in/${city// /+}"

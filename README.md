@@ -75,10 +75,12 @@ before being replaced by a symlink). It detects the OS:
 What it sets up (each individually selectable in the menu):
 
 - **Terminal & Prompt**: `tmux`, `starship`, `pet`, `cheat` (see below),
-  `tealdeer`, `zoxide`, `atuin`, the JetBrains Mono Nerd Font
+  `tealdeer`, `zoxide`, `atuin`, `weather` (see below), the JetBrains Mono
+  Nerd Font
 - **File Tools**: `fzf`, `tree`, `micro`, `yazi`, `eza`, `bat`,
-  `television`, `jless`, `glow`
-- **Git & Monitoring**: `lazygit`, `btop`, `gdu`, `gping`, `bandwhich`
+  `television`, `jless`, `glow`, `toolong`, `serpl`
+- **Git & Monitoring**: `lazygit`, `btop`, `gdu`, `gping`, `bandwhich`,
+  `fastfetch`
 - Symlinks: `tmux/tmux.conf` + `tmux/scripts/` -> `~/.config/tmux/`,
   `yazi/keymap.toml` -> `~/.config/yazi/`, `readline/inputrc` ->
   `~/.inputrc`, `eza/theme.yml` -> `~/.config/eza/`,
@@ -115,6 +117,7 @@ never gets sourced.
 | `eza/theme.yml` | [Catppuccin mocha (mauve)](https://github.com/catppuccin/eza) theme for `ls`/`ll`/`la`/`lt` ([eza](https://eza.rocks)) |
 | `btop/catppuccin_mocha.theme` | [Catppuccin mocha](https://github.com/catppuccin/btop) theme for [btop](https://github.com/aristocratos/btop) |
 | `cheat/cheat` | The `cheat` command — interactive guide/launcher for all these tools (symlinked to `~/.local/bin/cheat`) |
+| `weather/weather` | The `weather` command — forecast via wttr.in (symlinked to `~/.local/bin/weather`) |
 | `bootstrap.sh` | `curl \| bash` entry point — clones/updates the repo, then runs `install.sh` |
 | `install.sh` | Interactive installer (macOS via Homebrew, Linux via apt + upstream installers) |
 
@@ -149,6 +152,10 @@ back to the menu when the tool exits.
 | [`glow`](https://github.com/charmbracelet/glow) | Markdown reader — `glow README.md`, or no args to browse |
 | [`zoxide`](https://github.com/ajeetdsouza/zoxide) | Smarter `cd` — `z <partial dir name>` jumps to your most-used match; `zi` opens an interactive picker. Doesn't touch plain `cd` |
 | [`atuin`](https://github.com/atuinsh/atuin) | SQLite-backed shell history — replaces `Ctrl-R` with fuzzy search across all your history; optional sync at [atuin.sh](https://atuin.sh) |
+| [`fastfetch`](https://github.com/fastfetch-cli/fastfetch) | System info display — like neofetch, much faster (mostly C) |
+| [`tl`](https://github.com/Textualize/toolong) (toolong) | Terminal log viewer — view, tail, merge, and search log files (plus JSONL); installed via `pipx` |
+| [`serpl`](https://github.com/yassinebridi/serpl) | Interactive terminal search & replace across a directory |
+| `weather` | Quick forecast via [wttr.in](https://wttr.in) — `weather` for your current location (IP geolocation), `weather Paris` for a city |
 
 ## tmux cheat sheet
 
