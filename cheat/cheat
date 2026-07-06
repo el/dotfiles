@@ -16,8 +16,8 @@ set -euo pipefail
 
 CATS=("Terminal & Prompt" "File Tools" "Git & Monitoring")
 
-T_CAT=(0 0 0 1 1 1 1 1 2 2 2 0 1 1 1 1 2 2)
-T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu tldr bat tv jless glow gping bandwhich)
+T_CAT=(0 0 0 1 1 1 1 1 2 2 2 0 1 1 1 1 2 2 0 0)
+T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu tldr bat tv jless glow gping bandwhich zoxide atuin)
 T_DESC=(
 	"terminal multiplexer — sessions that survive disconnects"
 	"cross-shell prompt, Catppuccin themed"
@@ -37,6 +37,8 @@ T_DESC=(
 	"markdown reader for the terminal"
 	"ping, but with a live graph"
 	"which process is eating the bandwidth"
+	"smarter cd that learns your habits"
+	"searchable shell history (replaces Ctrl-R)"
 )
 T_RUN=(
 	"tmux new-session -A -s main"
@@ -57,6 +59,8 @@ T_RUN=(
 	"glow"
 	"gping 1.1.1.1"
 	"sudo bandwhich"
+	"zoxide query -i"
+	"atuin search -i"
 )
 # Tips shown for the highlighted tool. Real newlines separate lines
 # (continuation lines start at column 0 on purpose).
@@ -92,6 +96,10 @@ pipe any JSON into it: curl -s ... | jless'
 arrows scroll · q quits'
 	'live latency graph · compare hosts: gping site-a.com site-b.com · q quits'
 	'needs sudo (raw sockets) · shows per-process network usage · q quits'
+	'day-to-day: type z <partial dir name> in the shell to jump there
+zi opens an interactive picker · doesnt touch plain cd'
+	'day-to-day: Ctrl-R in the shell opens fuzzy history search
+enter here runs the same search standalone · sync setup: atuin.sh'
 )
 
 # macOS Homebrew installs gdu as gdu-go (conflicts with coreutils' gdu)

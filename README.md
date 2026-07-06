@@ -41,8 +41,8 @@ apt / upstream release / symlink destination) and whether it's already
 present.
 
 A few items start unselected — opt in via the menu: `fzf`, `tree`,
-`lazygit`, `tealdeer`, `glow` (and "switch shell to zsh" on machines where
-zsh isn't the login shell). Note that the tmux-fzf and extrakto tmux
+`lazygit`, `tealdeer`, `glow`, `zoxide`, `atuin` (and "switch shell to zsh"
+on machines where zsh isn't the login shell). Note that the tmux-fzf and extrakto tmux
 plugins need `fzf` on PATH to work. To skip the menu and install the
 default selection (also what happens when no terminal is attached):
 
@@ -75,7 +75,7 @@ before being replaced by a symlink). It detects the OS:
 What it sets up (each individually selectable in the menu):
 
 - **Terminal & Prompt**: `tmux`, `starship`, `pet`, `cheat` (see below),
-  `tealdeer`, the JetBrains Mono Nerd Font
+  `tealdeer`, `zoxide`, `atuin`, the JetBrains Mono Nerd Font
 - **File Tools**: `fzf`, `tree`, `micro`, `yazi`, `eza`, `bat`,
   `television`, `jless`, `glow`
 - **Git & Monitoring**: `lazygit`, `btop`, `gdu`, `gping`, `bandwhich`
@@ -147,6 +147,8 @@ back to the menu when the tool exits.
 | [`gping`](https://github.com/orf/gping) | Ping with a live latency graph; compare hosts side by side |
 | [`bandwhich`](https://github.com/imsnif/bandwhich) | Per-process bandwidth monitor (needs `sudo`) |
 | [`glow`](https://github.com/charmbracelet/glow) | Markdown reader — `glow README.md`, or no args to browse |
+| [`zoxide`](https://github.com/ajeetdsouza/zoxide) | Smarter `cd` — `z <partial dir name>` jumps to your most-used match; `zi` opens an interactive picker. Doesn't touch plain `cd` |
+| [`atuin`](https://github.com/atuinsh/atuin) | SQLite-backed shell history — replaces `Ctrl-R` with fuzzy search across all your history; optional sync at [atuin.sh](https://atuin.sh) |
 
 ## tmux cheat sheet
 

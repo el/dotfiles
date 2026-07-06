@@ -51,6 +51,14 @@ if command -v pet >/dev/null; then
 	bindkey '^s' pet-select
 fi
 
+# zoxide: `z <partial name>` jumps to your most-used matching directory.
+# Doesn't touch cd itself — z/zi are separate commands.
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
+
+# atuin: SQLite-backed shell history with fuzzy search, replacing the
+# default Ctrl-R. Opt in further at https://docs.atuin.sh if you want sync.
+command -v atuin >/dev/null && eval "$(atuin init zsh)"
+
 # zsh-syntax-highlighting must be the LAST thing sourced in this file: it
 # wraps existing zle widgets, so anything registered after it won't get
 # highlighted.

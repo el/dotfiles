@@ -30,13 +30,14 @@ OS="$(uname -s)"
 # ---------------------------------------------------------------------------
 CAT_NAMES=("Terminal & Prompt" "File Tools" "Git & Monitoring" "Tmux" "Zsh" "Other Configs")
 
-ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0 0 1 1 1 1 2 2)
+ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0 0 1 1 1 1 2 2 0 0)
 ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
 	lazygit btop gdu
 	tmux-config tmux-plugins zshrc zsh-plugins
 	yazi-config eza-theme btop-theme inputrc git-editor
 	pet cheat
-	tealdeer bat television jless glow gping bandwhich)
+	tealdeer bat television jless glow gping bandwhich
+	zoxide atuin)
 ITEM_LABELS=(
 	"tmux — terminal multiplexer"
 	"fzf — fuzzy finder (powers the tmux-fzf and extrakto tmux plugins)"
@@ -67,11 +68,13 @@ ITEM_LABELS=(
 	"glow — markdown reader"
 	"gping — ping with a live graph"
 	"bandwhich — per-process bandwidth monitor"
+	"zoxide — smarter cd that learns your habits"
+	"atuin — searchable shell history (SQLite-backed, replaces Ctrl-R)"
 )
-ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
 # These start unselected (opt-in via the menu; --all also skips them).
-DEFAULT_OFF="fzf tree lazygit tealdeer glow"
+DEFAULT_OFF="fzf tree lazygit tealdeer glow zoxide atuin"
 for _off_id in $DEFAULT_OFF; do
 	for ((i = 0; i < ${#ITEM_IDS[@]}; i++)); do
 		if [ "${ITEM_IDS[$i]}" = "$_off_id" ]; then ITEM_SEL[$i]=0; fi
@@ -392,7 +395,7 @@ ensure_brew() {
 if [ "$OS" = "Darwin" ]; then
 	formulas=""
 	for id in tmux fzf tree micro yazi eza starship lazygit btop gdu pet \
-		bat television tealdeer jless gping bandwhich glow; do
+		bat television tealdeer jless gping bandwhich glow zoxide atuin; do
 		sel "$id" && formulas="$formulas $id"
 	done
 	sel zsh-plugins && formulas="$formulas zsh-autosuggestions zsh-syntax-highlighting"
@@ -419,7 +422,7 @@ elif [ "$OS" = "Linux" ]; then
 	sel switch-shell && apt_pkgs="$apt_pkgs zsh"
 	sel tmux-plugins && apt_pkgs="$apt_pkgs git"
 	if any_sel starship eza yazi nerd-font btop gdu lazygit pet \
-		bat television tealdeer jless gping bandwhich glow; then
+		bat television tealdeer jless gping bandwhich glow zoxide atuin; then
 		apt_pkgs="$apt_pkgs curl ca-certificates"
 	fi
 	if any_sel yazi nerd-font jless; then apt_pkgs="$apt_pkgs unzip"; fi
@@ -650,6 +653,39 @@ elif [ "$OS" = "Linux" ]; then
 			fi
 		else
 			echo "!! Skipping bandwhich: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel zoxide && ! command -v zoxide &>/dev/null; then
+		if [ -n "$MUSL_TARGET" ]; then
+			echo "==> Installing zoxide (not in apt)..."
+			# zoxide's release filenames embed the version, same as
+			# lazygit/pet above — look it up rather than guessing.
+			zx_url="$(curl -fsSL https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest |
+				grep -o "https://github.com/ajeetdsouza/zoxide/releases/download/[^\"]*${MUSL_TARGET}\.tar\.gz")"
+			if [ -n "$zx_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$zx_url" | tar -xz -C "$tmp"
+				sudo install -m 755 "$(find "$tmp" -type f -name zoxide | head -1)" /usr/local/bin/zoxide
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine zoxide download URL, skipping"
+			fi
+		else
+			echo "!! Skipping zoxide: unsupported architecture $(uname -m)"
+		fi
+	fi
+
+	if sel atuin && ! command -v atuin &>/dev/null; then
+		if [ -n "$RUST_TARGET" ]; then
+			echo "==> Installing atuin (not in apt)..."
+			tmp="$(mktemp -d)"
+			curl -fsSL "https://github.com/atuinsh/atuin/releases/latest/download/atuin-${RUST_TARGET}.tar.gz" |
+				tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name atuin | head -1)" /usr/local/bin/atuin
+			rm -rf "$tmp"
+		else
+			echo "!! Skipping atuin: unsupported architecture $(uname -m)"
 		fi
 	fi
 
