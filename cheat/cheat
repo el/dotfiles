@@ -16,8 +16,8 @@ set -euo pipefail
 
 CATS=("Terminal & Prompt" "File Tools" "Git & Monitoring")
 
-T_CAT=(0 0 0 1 1 1 1 1 2 2 2 0 1 1 1 1 2 2 0 0 2 1 1 0)
-T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu tldr bat tv jless glow gping bandwhich zoxide atuin fastfetch tl serpl weather)
+T_CAT=(0 0 0 1 1 1 1 1 2 2 2 0 1 1 1 1 2 2 0 0 2 1 1 0 0)
+T_NAME=(tmux starship pet fzf tree micro yazi eza lazygit btop gdu tldr bat tv jless glow gping bandwhich zoxide atuin fastfetch tl serpl weather navi)
 T_DESC=(
 	"terminal multiplexer — sessions that survive disconnects"
 	"cross-shell prompt, Catppuccin themed"
@@ -43,6 +43,7 @@ T_DESC=(
 	"terminal log viewer/tailer — search, tail, merge, JSONL"
 	"interactive terminal search & replace across a directory"
 	"quick forecast via wttr.in"
+	"interactive cheatsheet tool — fills in and runs commands"
 )
 T_RUN=(
 	"tmux new-session -A -s main"
@@ -69,6 +70,7 @@ T_RUN=(
 	'f=$(mktemp); printf "%s\n" "10:41:02 INFO  server started on :8080" "10:41:05 WARN  slow query (812ms)" "10:41:09 ERROR connection reset by peer" "10:41:10 INFO  retrying..." > "$f"; tl "$f"; rm -f "$f"'
 	'd=$(mktemp -d); echo "hello world, hello there" > "$d/demo.txt"; (cd "$d" && serpl); rm -rf "$d"'
 	"weather"
+	"navi"
 )
 # Tips shown for the highlighted tool. Real newlines separate lines
 # (continuation lines start at column 0 on purpose).
@@ -116,6 +118,8 @@ this demo opens a throwaway file with a few sample lines · q quits'
 this demo runs in a scratch temp dir so nothing in this repo is touched · q/Esc quits'
 	'weather (auto-detects your location via IP) · weather Paris for a specific city
 plain-text data from wttr.in over HTTP — no API key needed'
+	'type to filter cheatsheets · Tab fills in the next argument · enter runs it
+first run offers to download a cheatsheet repo (needs network) · q/Esc quits'
 )
 
 # macOS Homebrew installs gdu as gdu-go (conflicts with coreutils' gdu)

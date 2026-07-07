@@ -32,7 +32,7 @@ OS="$(uname -s)"
 # ---------------------------------------------------------------------------
 CAT_NAMES=("Terminal & Prompt" "File Tools" "Git & Monitoring" "Tmux" "Zsh" "Other Configs")
 
-ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0 0 1 1 1 1 2 2 0 0 2 1 1 0)
+ITEM_CATS=(0 1 1 1 1 1 0 0 2 2 2 3 3 4 4 5 5 5 5 5 0 0 0 1 1 1 1 2 2 0 0 2 1 1 0 0)
 ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
 	lazygit btop gdu
 	tmux-config tmux-plugins zshrc zsh-plugins
@@ -40,7 +40,7 @@ ITEM_IDS=(tmux fzf tree micro yazi eza starship nerd-font
 	pet cheat
 	tealdeer bat television jless glow gping bandwhich
 	zoxide atuin
-	fastfetch toolong serpl weather)
+	fastfetch toolong serpl weather navi)
 ITEM_LABELS=(
 	"tmux — terminal multiplexer"
 	"fzf — fuzzy finder (powers the tmux-fzf and extrakto tmux plugins)"
@@ -77,11 +77,12 @@ ITEM_LABELS=(
 	"toolong — terminal log viewer/tailer (command: tl)"
 	"serpl — interactive terminal search & replace"
 	"weather — forecast via wttr.in (command: weather)"
+	"navi — interactive cheatsheet tool, fills in and runs commands"
 )
-ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+ITEM_SEL=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
 # These start unselected (opt-in via the menu; --all also skips them).
-DEFAULT_OFF="fzf tree lazygit tealdeer glow zoxide atuin"
+DEFAULT_OFF="fzf tree lazygit tealdeer glow zoxide atuin navi"
 for _off_id in $DEFAULT_OFF; do
 	for ((i = 0; i < ${#ITEM_IDS[@]}; i++)); do
 		if [ "${ITEM_IDS[$i]}" = "$_off_id" ]; then ITEM_SEL[$i]=0; fi
@@ -411,7 +412,7 @@ if [ "$OS" = "Darwin" ]; then
 	formulas=""
 	for id in tmux fzf tree micro yazi eza starship lazygit btop gdu pet \
 		bat television tealdeer jless gping bandwhich glow zoxide atuin \
-		fastfetch serpl; do
+		fastfetch serpl navi; do
 		sel "$id" && formulas="$formulas $id"
 	done
 	sel zsh-plugins && formulas="$formulas zsh-autosuggestions zsh-syntax-highlighting"
@@ -448,7 +449,7 @@ elif [ "$OS" = "Linux" ]; then
 	sel toolong && apt_pkgs="$apt_pkgs pipx"
 	if any_sel starship eza yazi nerd-font btop gdu lazygit pet \
 		bat television tealdeer jless gping bandwhich glow zoxide atuin \
-		fastfetch serpl weather; then
+		fastfetch serpl weather navi; then
 		apt_pkgs="$apt_pkgs curl ca-certificates"
 	fi
 	if any_sel yazi nerd-font jless; then apt_pkgs="$apt_pkgs unzip"; fi
@@ -463,7 +464,8 @@ elif [ "$OS" = "Linux" ]; then
 	# Different arch-naming conventions across ecosystems: Rust gnu target
 	# triples (eza/yazi/bat/television), Rust musl triples (btop/bandwhich/
 	# tealdeer), Go-style arch strings (gdu uses "amd64"), plain arm64/x86_64
-	# (lazygit, gping, glow, serpl), and fastfetch's own aarch64/amd64 pair.
+	# (lazygit, gping, glow, serpl), fastfetch's own aarch64/amd64 pair, and
+	# navi (only ships an aarch64 gnu build and an x86_64 musl build).
 	case "$(uname -m)" in
 	aarch64 | arm64)
 		RUST_TARGET="aarch64-unknown-linux-gnu"
@@ -471,6 +473,7 @@ elif [ "$OS" = "Linux" ]; then
 		GO_ARCH="arm64"
 		BIN_ARCH="arm64"
 		FASTFETCH_ARCH="aarch64"
+		NAVI_TARGET="aarch64-unknown-linux-gnu"
 		;;
 	x86_64)
 		RUST_TARGET="x86_64-unknown-linux-gnu"
@@ -478,6 +481,7 @@ elif [ "$OS" = "Linux" ]; then
 		GO_ARCH="amd64"
 		BIN_ARCH="x86_64"
 		FASTFETCH_ARCH="amd64"
+		NAVI_TARGET="x86_64-unknown-linux-musl"
 		;;
 	*)
 		RUST_TARGET=""
@@ -485,6 +489,7 @@ elif [ "$OS" = "Linux" ]; then
 		GO_ARCH=""
 		BIN_ARCH=""
 		FASTFETCH_ARCH=""
+		NAVI_TARGET=""
 		;;
 	esac
 
@@ -776,6 +781,26 @@ elif [ "$OS" = "Linux" ]; then
 	if sel toolong && ! command -v tl &>/dev/null; then
 		echo "==> Installing toolong (pipx)..."
 		pipx install toolong
+	fi
+
+	if sel navi && ! command -v navi &>/dev/null; then
+		if [ -n "$NAVI_TARGET" ]; then
+			echo "==> Installing navi (not in apt)..."
+			# navi's release filenames embed the version, same as lazygit/pet
+			# above — look it up rather than guessing.
+			navi_url="$(curl -fsSL https://api.github.com/repos/denisidoro/navi/releases/latest |
+				grep -o "https://github.com/denisidoro/navi/releases/download/[^\"]*-${NAVI_TARGET}\.tar\.gz")"
+			if [ -n "$navi_url" ]; then
+				tmp="$(mktemp -d)"
+				curl -fsSL "$navi_url" | tar -xz -C "$tmp"
+				sudo install -m 755 "$(find "$tmp" -type f -name navi | head -1)" /usr/local/bin/navi
+				rm -rf "$tmp"
+			else
+				echo "!! Could not determine navi download URL, skipping"
+			fi
+		else
+			echo "!! Skipping navi: unsupported architecture $(uname -m)"
+		fi
 	fi
 
 	if sel nerd-font; then

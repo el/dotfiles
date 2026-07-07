@@ -41,8 +41,8 @@ apt / upstream release / symlink destination) and whether it's already
 present.
 
 A few items start unselected — opt in via the menu: `fzf`, `tree`,
-`lazygit`, `tealdeer`, `glow`, `zoxide`, `atuin` (and "switch shell to zsh"
-on machines where zsh isn't the login shell). Note that the tmux-fzf and extrakto tmux
+`lazygit`, `tealdeer`, `glow`, `zoxide`, `atuin`, `navi` (and "switch shell to
+zsh" on machines where zsh isn't the login shell). Note that the tmux-fzf and extrakto tmux
 plugins need `fzf` on PATH to work. To skip the menu and install the
 default selection (also what happens when no terminal is attached):
 
@@ -75,8 +75,8 @@ before being replaced by a symlink). It detects the OS:
 What it sets up (each individually selectable in the menu):
 
 - **Terminal & Prompt**: `tmux`, `starship`, `pet`, `cheat` (see below),
-  `tealdeer`, `zoxide`, `atuin`, `weather` (see below), the JetBrains Mono
-  Nerd Font
+  `tealdeer`, `zoxide`, `atuin`, `navi`, `weather` (see below), the
+  JetBrains Mono Nerd Font
 - **File Tools**: `fzf`, `tree`, `micro`, `yazi`, `eza`, `bat`,
   `television`, `jless`, `glow`, `toolong`, `serpl`
 - **Git & Monitoring**: `lazygit`, `btop`, `gdu`, `gping`, `bandwhich`,
@@ -156,6 +156,7 @@ back to the menu when the tool exits.
 | [`tl`](https://github.com/Textualize/toolong) (toolong) | Terminal log viewer — view, tail, merge, and search log files (plus JSONL); installed via `pipx` |
 | [`serpl`](https://github.com/yassinebridi/serpl) | Interactive terminal search & replace across a directory |
 | `weather` | Quick forecast via [wttr.in](https://wttr.in) — `weather` for your current location (IP geolocation), `weather Paris` for a city |
+| [`navi`](https://github.com/denisidoro/navi) | Interactive cheatsheet tool — browse cheatsheets, fill in arguments, and run the command; can also be bound as a shell widget |
 
 ## tmux cheat sheet
 
