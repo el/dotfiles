@@ -159,6 +159,16 @@ toggle_cat() { # select all items in category $1, or none if all were selected
 	for idx in $(cat_items "$1"); do ITEM_SEL[$idx]=$newv; done
 }
 
+toggle_all() { # same, across every category: all on, or all off if all were on
+	local i all=1 newv
+	for ((i = 0; i < ${#ITEM_SEL[@]}; i++)); do
+		if [ "${ITEM_SEL[$i]}" -eq 0 ]; then all=0; fi
+	done
+	newv=1
+	if [ "$all" -eq 1 ]; then newv=0; fi
+	for ((i = 0; i < ${#ITEM_SEL[@]}; i++)); do ITEM_SEL[$i]=$newv; done
+}
+
 # ---------------------------------------------------------------------------
 # Interactive menu (reads keys from /dev/tty so `curl | bash` stays interactive)
 # ---------------------------------------------------------------------------
@@ -315,7 +325,8 @@ draw_menu() { # $1 = active tab, $2 = cursor row
 		info=$(item_info "${ITEM_IDS[$i]}")
 		printf '\n  \033[2m─ info ──────────────────────────────────────────\033[0m\n'
 		printf '  \033[2m%s\033[0m\n' "$info"
-		printf '\n  \033[2m←/→ tabs · ↑/↓ move · space toggle · a all/none · enter install · q quit\033[0m\n'
+		printf '\n  \033[2m←/→ tabs · ↑/↓ move · space toggle · enter install · q quit\033[0m\n'
+		printf '  \033[2ma all/none in this tab · A all/none everywhere\033[0m\n'
 	} >/dev/tty
 }
 
@@ -351,8 +362,11 @@ run_menu() {
 			ii=$(cat_item_at "$tab" "$cursor")
 			if [ "${ITEM_SEL[$ii]}" -eq 1 ]; then ITEM_SEL[$ii]=0; else ITEM_SEL[$ii]=1; fi
 			;;
-		a | A)
+		a)
 			toggle_cat "$tab"
+			;;
+		A)
+			toggle_all
 			;;
 		'')
 			break

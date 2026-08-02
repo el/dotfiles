@@ -31,14 +31,15 @@ The installer opens an interactive picker (same look and feel as the
   ─ info ──────────────────────────────────────────
   installs via Homebrew · already installed
 
-  ←/→ tabs · ↑/↓ move · space toggle · a all/none · enter install · q quit
+  ←/→ tabs · ↑/↓ move · space toggle · enter install · q quit
+  a all/none in this tab · A all/none everywhere
 ```
 
 `←/→` switches category tabs, `space` toggles the highlighted item, `a`
-toggles everything in the current tab, `enter` installs the selection. The
-info pane shows how the highlighted item installs on this OS (Homebrew /
-apt / upstream release / symlink destination) and whether it's already
-present.
+toggles everything in the current tab, `A` toggles everything in every tab,
+`enter` installs the selection. The info pane shows how the highlighted item
+installs on this OS (Homebrew / apt / upstream release / symlink destination)
+and whether it's already present.
 
 A few items start unselected — opt in via the menu: `fzf`, `tree`,
 `lazygit`, `tealdeer`, `glow`, `zoxide`, `atuin`, `navi` (and "switch shell to
