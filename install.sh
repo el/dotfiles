@@ -13,6 +13,11 @@
 # Safe to re-run: existing real files are backed up before being replaced
 # with symlinks, and every step is idempotent.
 #
+# Partial failure is expected and survivable: an item that won't install on
+# this machine is reported and skipped, the rest of the run continues, and the
+# summary at the end lists what to retry (exit status 1 if anything was
+# skipped). Re-running picks up just those.
+#
 # macOS: packages via Homebrew (installed if missing).
 # Linux: packages via apt where reliable; starship, eza, yazi, btop, gdu,
 # lazygit, fastfetch, serpl, and the Nerd Font aren't reliably in apt repos
@@ -394,6 +399,42 @@ if [ -n "${DOTFILES_DRY_RUN:-}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Failure isolation
+#
+# One item failing (a formula that won't build, a release asset missing for
+# this arch, a flaky download, a package apt doesn't carry on this distro)
+# used to abort the whole run under `set -e` — including the config symlinking
+# below, which is the part that matters most and can't fail. So each item runs
+# through step(): a failure is recorded and the run carries on, and the summary
+# at the end lists what didn't make it.
+#
+# The subshell needs its own `set -e`, and step must NOT be called from a
+# condition context (no `step ... || x`, no `sel foo && step ...`) — bash
+# disables errexit for the whole call chain there, including inside the
+# subshell, which would let a step blunder on past its own first failure and,
+# say, `sudo install` a file that never downloaded. Call it from an `if` body.
+# ---------------------------------------------------------------------------
+FAILED_ITEMS=""
+
+step() { # step <label> <command...> — run isolated; never aborts the script
+	local label="$1"
+	shift
+	local rc=0
+	set +e
+	(
+		set -e
+		"$@"
+	)
+	rc=$?
+	set -e
+	if [ "$rc" -ne 0 ]; then
+		echo "!! $label failed (exit $rc) — skipping it and continuing" >&2
+		FAILED_ITEMS="$FAILED_ITEMS $label"
+	fi
+	return 0
+}
+
+# ---------------------------------------------------------------------------
 # 1. Packages
 # ---------------------------------------------------------------------------
 ensure_brew() {
@@ -418,14 +459,22 @@ if [ "$OS" = "Darwin" ]; then
 	sel zsh-plugins && formulas="$formulas zsh-autosuggestions zsh-syntax-highlighting"
 
 	if [ -n "$formulas" ] || sel nerd-font; then
-		ensure_brew
-		echo "==> Installing packages via Homebrew..."
-		for f in $formulas; do
-			brew list "$f" &>/dev/null || brew install "$f"
-		done
-		if sel nerd-font; then
-			brew list --cask font-jetbrains-mono-nerd-font &>/dev/null ||
-				brew install --cask font-jetbrains-mono-nerd-font
+		# `|| true` so a failed Homebrew bootstrap doesn't abort the run; the
+		# check below decides what to do about it.
+		ensure_brew || true
+		if command -v brew &>/dev/null; then
+			echo "==> Installing packages via Homebrew..."
+			for f in $formulas; do
+				if ! brew list "$f" &>/dev/null; then
+					step "$f" brew install "$f"
+				fi
+			done
+			if sel nerd-font && ! brew list --cask font-jetbrains-mono-nerd-font &>/dev/null; then
+				step nerd-font brew install --cask font-jetbrains-mono-nerd-font
+			fi
+		else
+			echo "!! Homebrew unavailable — skipping all Homebrew packages" >&2
+			FAILED_ITEMS="$FAILED_ITEMS homebrew"
 		fi
 	fi
 
@@ -433,8 +482,12 @@ if [ "$OS" = "Darwin" ]; then
 	# install it via pipx instead, same as upstream recommends.
 	if sel toolong && ! command -v tl &>/dev/null; then
 		echo "==> Installing toolong (pipx)..."
-		brew list pipx &>/dev/null || brew install pipx
-		pipx install toolong
+		if ! brew list pipx &>/dev/null; then
+			step pipx brew install pipx
+		fi
+		if command -v pipx &>/dev/null; then
+			step toolong pipx install toolong
+		fi
 	fi
 
 elif [ "$OS" = "Linux" ]; then
@@ -457,8 +510,16 @@ elif [ "$OS" = "Linux" ]; then
 
 	if [ -n "$apt_pkgs" ]; then
 		echo "==> Installing packages via apt..."
-		sudo apt-get update
-		sudo apt-get install -y $apt_pkgs
+		step apt-update sudo apt-get update
+		# apt installs nothing at all if one name in the batch is unknown, and
+		# which names exist drifts across distro versions — so fall back to
+		# one-at-a-time to isolate whichever package this distro lacks.
+		if ! sudo apt-get install -y $apt_pkgs; then
+			echo "!! Batch apt install failed — retrying packages individually..." >&2
+			for p in $apt_pkgs; do
+				step "$p" sudo apt-get install -y "$p"
+			done
+		fi
 	fi
 
 	# Different arch-naming conventions across ecosystems: Rust gnu target
@@ -493,284 +554,338 @@ elif [ "$OS" = "Linux" ]; then
 		;;
 	esac
 
-	if sel starship && ! command -v starship &>/dev/null; then
+	install_starship() {
 		echo "==> Installing starship (not in apt)..."
 		curl -sS https://starship.rs/install.sh | sh -s -- --yes
+	}
+	if sel starship && ! command -v starship &>/dev/null; then
+		step starship install_starship
 	fi
 
+	install_eza() {
+		echo "==> Installing eza (not in apt)..."
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/eza-community/eza/releases/latest/download/eza_${RUST_TARGET}.tar.gz" |
+			tar -xz -C "$tmp"
+		sudo install -m 755 "$tmp/eza" /usr/local/bin/eza
+		rm -rf "$tmp"
+	}
 	if sel eza && ! command -v eza &>/dev/null; then
 		if [ -n "$RUST_TARGET" ]; then
-			echo "==> Installing eza (not in apt)..."
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/eza-community/eza/releases/latest/download/eza_${RUST_TARGET}.tar.gz" |
-				tar -xz -C "$tmp"
-			sudo install -m 755 "$tmp/eza" /usr/local/bin/eza
-			rm -rf "$tmp"
+			step eza install_eza
 		else
 			echo "!! Skipping eza: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_yazi() {
+		echo "==> Installing yazi (not in apt)..."
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${RUST_TARGET}.zip" -o "$tmp/yazi.zip"
+		unzip -q "$tmp/yazi.zip" -d "$tmp"
+		sudo install -m 755 "$tmp"/yazi-*/yazi "$tmp"/yazi-*/ya /usr/local/bin/
+		rm -rf "$tmp"
+	}
 	if sel yazi && ! command -v yazi &>/dev/null; then
 		if [ -n "$RUST_TARGET" ]; then
-			echo "==> Installing yazi (not in apt)..."
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${RUST_TARGET}.zip" -o "$tmp/yazi.zip"
-			unzip -q "$tmp/yazi.zip" -d "$tmp"
-			sudo install -m 755 "$tmp"/yazi-*/yazi "$tmp"/yazi-*/ya /usr/local/bin/
-			rm -rf "$tmp"
+			step yazi install_yazi
 		else
 			echo "!! Skipping yazi: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_btop() {
+		echo "==> Installing btop (not in apt)..."
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/aristocratos/btop/releases/latest/download/btop-${MUSL_TARGET}.tar.gz" |
+			tar -xz -C "$tmp"
+		sudo install -m 755 "$tmp/btop/bin/btop" /usr/local/bin/btop
+		rm -rf "$tmp"
+	}
 	if sel btop && ! command -v btop &>/dev/null; then
 		if [ -n "$MUSL_TARGET" ]; then
-			echo "==> Installing btop (not in apt)..."
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/aristocratos/btop/releases/latest/download/btop-${MUSL_TARGET}.tar.gz" |
-				tar -xz -C "$tmp"
-			sudo install -m 755 "$tmp/btop/bin/btop" /usr/local/bin/btop
-			rm -rf "$tmp"
+			step btop install_btop
 		else
 			echo "!! Skipping btop: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_gdu() {
+		echo "==> Installing gdu (not in apt)..."
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/dundee/gdu/releases/latest/download/gdu_linux_${GO_ARCH}.tgz" |
+			tar -xz -C "$tmp"
+		sudo install -m 755 "$tmp/gdu_linux_${GO_ARCH}" /usr/local/bin/gdu
+		rm -rf "$tmp"
+	}
 	if sel gdu && ! command -v gdu &>/dev/null; then
 		if [ -n "$GO_ARCH" ]; then
-			echo "==> Installing gdu (not in apt)..."
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/dundee/gdu/releases/latest/download/gdu_linux_${GO_ARCH}.tgz" |
-				tar -xz -C "$tmp"
-			sudo install -m 755 "$tmp/gdu_linux_${GO_ARCH}" /usr/local/bin/gdu
-			rm -rf "$tmp"
+			step gdu install_gdu
 		else
 			echo "!! Skipping gdu: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_lazygit() {
+		echo "==> Installing lazygit (not in apt)..."
+		# lazygit's release filenames embed the version, so a fixed
+		# .../latest/download/<name> URL doesn't work — look it up.
+		lg_url="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest |
+			grep -o "https://github.com/jesseduffield/lazygit/releases/download/[^\"]*linux_${BIN_ARCH}\.tar\.gz")"
+		if [ -n "$lg_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$lg_url" | tar -xz -C "$tmp" lazygit
+			sudo install -m 755 "$tmp/lazygit" /usr/local/bin/lazygit
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine lazygit download URL, skipping"
+		fi
+	}
 	if sel lazygit && ! command -v lazygit &>/dev/null; then
 		if [ -n "$BIN_ARCH" ]; then
-			echo "==> Installing lazygit (not in apt)..."
-			# lazygit's release filenames embed the version, so a fixed
-			# .../latest/download/<name> URL doesn't work — look it up.
-			lg_url="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest |
-				grep -o "https://github.com/jesseduffield/lazygit/releases/download/[^\"]*linux_${BIN_ARCH}\.tar\.gz")"
-			if [ -n "$lg_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$lg_url" | tar -xz -C "$tmp" lazygit
-				sudo install -m 755 "$tmp/lazygit" /usr/local/bin/lazygit
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine lazygit download URL, skipping"
-			fi
+			step lazygit install_lazygit
 		else
 			echo "!! Skipping lazygit: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_bat() {
+		# apt has bat, but Debian installs the binary as "batcat" —
+		# upstream keeps the real name.
+		echo "==> Installing bat (apt names it batcat)..."
+		bat_url="$(curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest |
+			grep -o "https://github.com/sharkdp/bat/releases/download/[^\"]*-${RUST_TARGET}\.tar\.gz" | head -1)"
+		if [ -n "$bat_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$bat_url" | tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name bat | head -1)" /usr/local/bin/bat
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine bat download URL, skipping"
+		fi
+	}
 	if sel bat && ! command -v bat &>/dev/null; then
 		if [ -n "$RUST_TARGET" ]; then
-			# apt has bat, but Debian installs the binary as "batcat" —
-			# upstream keeps the real name.
-			echo "==> Installing bat (apt names it batcat)..."
-			bat_url="$(curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest |
-				grep -o "https://github.com/sharkdp/bat/releases/download/[^\"]*-${RUST_TARGET}\.tar\.gz" | head -1)"
-			if [ -n "$bat_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$bat_url" | tar -xz -C "$tmp"
-				sudo install -m 755 "$(find "$tmp" -type f -name bat | head -1)" /usr/local/bin/bat
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine bat download URL, skipping"
-			fi
+			step bat install_bat
 		else
 			echo "!! Skipping bat: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_television() {
+		echo "==> Installing television (not in apt)..."
+		tv_url="$(curl -fsSL https://api.github.com/repos/alexpasmantier/television/releases/latest |
+			grep -o "https://github.com/alexpasmantier/television/releases/download/[^\"]*-${RUST_TARGET}\.deb" | head -1)"
+		if [ -n "$tv_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$tv_url" -o "$tmp/tv.deb"
+			sudo dpkg -i "$tmp/tv.deb"
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine television download URL, skipping"
+		fi
+	}
 	if sel television && ! command -v tv &>/dev/null; then
 		if [ -n "$RUST_TARGET" ]; then
-			echo "==> Installing television (not in apt)..."
-			tv_url="$(curl -fsSL https://api.github.com/repos/alexpasmantier/television/releases/latest |
-				grep -o "https://github.com/alexpasmantier/television/releases/download/[^\"]*-${RUST_TARGET}\.deb" | head -1)"
-			if [ -n "$tv_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$tv_url" -o "$tmp/tv.deb"
-				sudo dpkg -i "$tmp/tv.deb"
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine television download URL, skipping"
-			fi
+			step television install_television
 		else
 			echo "!! Skipping television: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_tealdeer() {
+		echo "==> Installing tealdeer (not in apt)..."
+		# Ships bare static binaries with fixed names, e.g.
+		# tealdeer-linux-aarch64-musl
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/tealdeer-rs/tealdeer/releases/latest/download/tealdeer-linux-${RUST_TARGET%%-*}-musl" -o "$tmp/tldr"
+		sudo install -m 755 "$tmp/tldr" /usr/local/bin/tldr
+		rm -rf "$tmp"
+	}
 	if sel tealdeer && ! command -v tldr &>/dev/null; then
 		if [ -n "$RUST_TARGET" ]; then
-			echo "==> Installing tealdeer (not in apt)..."
-			# Ships bare static binaries with fixed names, e.g.
-			# tealdeer-linux-aarch64-musl
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/tealdeer-rs/tealdeer/releases/latest/download/tealdeer-linux-${RUST_TARGET%%-*}-musl" -o "$tmp/tldr"
-			sudo install -m 755 "$tmp/tldr" /usr/local/bin/tldr
-			rm -rf "$tmp"
+			step tealdeer install_tealdeer
 		else
 			echo "!! Skipping tealdeer: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_jless() {
+		echo "==> Installing jless (not in apt)..."
+		jl_url="$(curl -fsSL https://api.github.com/repos/PaulJuliusMartinez/jless/releases/latest |
+			grep -o "https://github.com/PaulJuliusMartinez/jless/releases/download/[^\"]*x86_64-unknown-linux-gnu\.zip" | head -1)"
+		if [ -n "$jl_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$jl_url" -o "$tmp/jless.zip"
+			unzip -q "$tmp/jless.zip" -d "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name jless | head -1)" /usr/local/bin/jless
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine jless download URL, skipping"
+		fi
+	}
 	if sel jless && ! command -v jless &>/dev/null; then
 		if [ "$(uname -m)" = "x86_64" ]; then
-			echo "==> Installing jless (not in apt)..."
-			jl_url="$(curl -fsSL https://api.github.com/repos/PaulJuliusMartinez/jless/releases/latest |
-				grep -o "https://github.com/PaulJuliusMartinez/jless/releases/download/[^\"]*x86_64-unknown-linux-gnu\.zip" | head -1)"
-			if [ -n "$jl_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$jl_url" -o "$tmp/jless.zip"
-				unzip -q "$tmp/jless.zip" -d "$tmp"
-				sudo install -m 755 "$(find "$tmp" -type f -name jless | head -1)" /usr/local/bin/jless
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine jless download URL, skipping"
-			fi
+			step jless install_jless
 		else
 			echo "!! Skipping jless: upstream ships no Linux $(uname -m) build"
 		fi
 	fi
 
+	install_glow() {
+		echo "==> Installing glow (not in apt)..."
+		glow_url="$(curl -fsSL https://api.github.com/repos/charmbracelet/glow/releases/latest |
+			grep -o "https://github.com/charmbracelet/glow/releases/download/[^\"]*_Linux_${BIN_ARCH}\.tar\.gz" | head -1)"
+		if [ -n "$glow_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$glow_url" | tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name glow | head -1)" /usr/local/bin/glow
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine glow download URL, skipping"
+		fi
+	}
 	if sel glow && ! command -v glow &>/dev/null; then
 		if [ -n "$BIN_ARCH" ]; then
-			echo "==> Installing glow (not in apt)..."
-			glow_url="$(curl -fsSL https://api.github.com/repos/charmbracelet/glow/releases/latest |
-				grep -o "https://github.com/charmbracelet/glow/releases/download/[^\"]*_Linux_${BIN_ARCH}\.tar\.gz" | head -1)"
-			if [ -n "$glow_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$glow_url" | tar -xz -C "$tmp"
-				sudo install -m 755 "$(find "$tmp" -type f -name glow | head -1)" /usr/local/bin/glow
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine glow download URL, skipping"
-			fi
+			step glow install_glow
 		else
 			echo "!! Skipping glow: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_gping() {
+		echo "==> Installing gping (not in apt)..."
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/orf/gping/releases/latest/download/gping-Linux-musl-${BIN_ARCH}.tar.gz" |
+			tar -xz -C "$tmp"
+		sudo install -m 755 "$(find "$tmp" -type f -name gping | head -1)" /usr/local/bin/gping
+		rm -rf "$tmp"
+	}
 	if sel gping && ! command -v gping &>/dev/null; then
 		if [ -n "$BIN_ARCH" ]; then
-			echo "==> Installing gping (not in apt)..."
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/orf/gping/releases/latest/download/gping-Linux-musl-${BIN_ARCH}.tar.gz" |
-				tar -xz -C "$tmp"
-			sudo install -m 755 "$(find "$tmp" -type f -name gping | head -1)" /usr/local/bin/gping
-			rm -rf "$tmp"
+			step gping install_gping
 		else
 			echo "!! Skipping gping: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_bandwhich() {
+		echo "==> Installing bandwhich (not in apt)..."
+		bw_url="$(curl -fsSL https://api.github.com/repos/imsnif/bandwhich/releases/latest |
+			grep -o "https://github.com/imsnif/bandwhich/releases/download/[^\"]*-${MUSL_TARGET}\.tar\.gz" | head -1)"
+		if [ -n "$bw_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$bw_url" | tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name bandwhich | head -1)" /usr/local/bin/bandwhich
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine bandwhich download URL, skipping"
+		fi
+	}
 	if sel bandwhich && ! command -v bandwhich &>/dev/null; then
 		if [ -n "$MUSL_TARGET" ]; then
-			echo "==> Installing bandwhich (not in apt)..."
-			bw_url="$(curl -fsSL https://api.github.com/repos/imsnif/bandwhich/releases/latest |
-				grep -o "https://github.com/imsnif/bandwhich/releases/download/[^\"]*-${MUSL_TARGET}\.tar\.gz" | head -1)"
-			if [ -n "$bw_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$bw_url" | tar -xz -C "$tmp"
-				sudo install -m 755 "$(find "$tmp" -type f -name bandwhich | head -1)" /usr/local/bin/bandwhich
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine bandwhich download URL, skipping"
-			fi
+			step bandwhich install_bandwhich
 		else
 			echo "!! Skipping bandwhich: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_zoxide() {
+		echo "==> Installing zoxide (not in apt)..."
+		# zoxide's release filenames embed the version, same as
+		# lazygit/pet above — look it up rather than guessing.
+		zx_url="$(curl -fsSL https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest |
+			grep -o "https://github.com/ajeetdsouza/zoxide/releases/download/[^\"]*${MUSL_TARGET}\.tar\.gz")"
+		if [ -n "$zx_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$zx_url" | tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name zoxide | head -1)" /usr/local/bin/zoxide
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine zoxide download URL, skipping"
+		fi
+	}
 	if sel zoxide && ! command -v zoxide &>/dev/null; then
 		if [ -n "$MUSL_TARGET" ]; then
-			echo "==> Installing zoxide (not in apt)..."
-			# zoxide's release filenames embed the version, same as
-			# lazygit/pet above — look it up rather than guessing.
-			zx_url="$(curl -fsSL https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest |
-				grep -o "https://github.com/ajeetdsouza/zoxide/releases/download/[^\"]*${MUSL_TARGET}\.tar\.gz")"
-			if [ -n "$zx_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$zx_url" | tar -xz -C "$tmp"
-				sudo install -m 755 "$(find "$tmp" -type f -name zoxide | head -1)" /usr/local/bin/zoxide
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine zoxide download URL, skipping"
-			fi
+			step zoxide install_zoxide
 		else
 			echo "!! Skipping zoxide: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_atuin() {
+		echo "==> Installing atuin (not in apt)..."
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/atuinsh/atuin/releases/latest/download/atuin-${RUST_TARGET}.tar.gz" |
+			tar -xz -C "$tmp"
+		sudo install -m 755 "$(find "$tmp" -type f -name atuin | head -1)" /usr/local/bin/atuin
+		rm -rf "$tmp"
+	}
 	if sel atuin && ! command -v atuin &>/dev/null; then
 		if [ -n "$RUST_TARGET" ]; then
-			echo "==> Installing atuin (not in apt)..."
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/atuinsh/atuin/releases/latest/download/atuin-${RUST_TARGET}.tar.gz" |
-				tar -xz -C "$tmp"
-			sudo install -m 755 "$(find "$tmp" -type f -name atuin | head -1)" /usr/local/bin/atuin
-			rm -rf "$tmp"
+			step atuin install_atuin
 		else
 			echo "!! Skipping atuin: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_pet() {
+		echo "==> Installing pet (not in apt)..."
+		# pet's release filenames embed the version too — look it up,
+		# same as lazygit above. It ships .deb packages, so install
+		# via dpkg instead of extracting a tarball manually.
+		pet_url="$(curl -fsSL https://api.github.com/repos/knqyf263/pet/releases/latest |
+			grep -o "https://github.com/knqyf263/pet/releases/download/[^\"]*linux_${GO_ARCH}\.deb")"
+		if [ -n "$pet_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$pet_url" -o "$tmp/pet.deb"
+			sudo dpkg -i "$tmp/pet.deb"
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine pet download URL, skipping"
+		fi
+	}
 	if sel pet && ! command -v pet &>/dev/null; then
 		if [ -n "$GO_ARCH" ]; then
-			echo "==> Installing pet (not in apt)..."
-			# pet's release filenames embed the version too — look it up,
-			# same as lazygit above. It ships .deb packages, so install
-			# via dpkg instead of extracting a tarball manually.
-			pet_url="$(curl -fsSL https://api.github.com/repos/knqyf263/pet/releases/latest |
-				grep -o "https://github.com/knqyf263/pet/releases/download/[^\"]*linux_${GO_ARCH}\.deb")"
-			if [ -n "$pet_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$pet_url" -o "$tmp/pet.deb"
-				sudo dpkg -i "$tmp/pet.deb"
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine pet download URL, skipping"
-			fi
+			step pet install_pet
 		else
 			echo "!! Skipping pet: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_fastfetch() {
+		echo "==> Installing fastfetch (not reliably in apt across distros)..."
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-${FASTFETCH_ARCH}.deb" -o "$tmp/fastfetch.deb"
+		sudo dpkg -i "$tmp/fastfetch.deb"
+		rm -rf "$tmp"
+	}
 	if sel fastfetch && ! command -v fastfetch &>/dev/null; then
 		if [ -n "$FASTFETCH_ARCH" ]; then
-			echo "==> Installing fastfetch (not reliably in apt across distros)..."
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-${FASTFETCH_ARCH}.deb" -o "$tmp/fastfetch.deb"
-			sudo dpkg -i "$tmp/fastfetch.deb"
-			rm -rf "$tmp"
+			step fastfetch install_fastfetch
 		else
 			echo "!! Skipping fastfetch: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_serpl() {
+		echo "==> Installing serpl (not in apt)..."
+		# serpl's release filenames embed the version, same as lazygit/pet
+		# above — look it up rather than guessing.
+		serpl_url="$(curl -fsSL https://api.github.com/repos/yassinebridi/serpl/releases/latest |
+			grep -o "https://github.com/yassinebridi/serpl/releases/download/[^\"]*-linux-${BIN_ARCH}\.tar\.gz")"
+		if [ -n "$serpl_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$serpl_url" | tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name serpl | head -1)" /usr/local/bin/serpl
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine serpl download URL, skipping"
+		fi
+	}
 	if sel serpl && ! command -v serpl &>/dev/null; then
 		if [ -n "$BIN_ARCH" ]; then
-			echo "==> Installing serpl (not in apt)..."
-			# serpl's release filenames embed the version, same as lazygit/pet
-			# above — look it up rather than guessing.
-			serpl_url="$(curl -fsSL https://api.github.com/repos/yassinebridi/serpl/releases/latest |
-				grep -o "https://github.com/yassinebridi/serpl/releases/download/[^\"]*-linux-${BIN_ARCH}\.tar\.gz")"
-			if [ -n "$serpl_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$serpl_url" | tar -xz -C "$tmp"
-				sudo install -m 755 "$(find "$tmp" -type f -name serpl | head -1)" /usr/local/bin/serpl
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine serpl download URL, skipping"
-			fi
+			step serpl install_serpl
 		else
 			echo "!! Skipping serpl: unsupported architecture $(uname -m)"
 		fi
@@ -778,41 +893,50 @@ elif [ "$OS" = "Linux" ]; then
 
 	# toolong has no native Linux package — install via pipx (apt package
 	# added to apt_pkgs above), same as upstream recommends.
-	if sel toolong && ! command -v tl &>/dev/null; then
+	install_toolong() {
 		echo "==> Installing toolong (pipx)..."
 		pipx install toolong
+	}
+	if sel toolong && ! command -v tl &>/dev/null; then
+		step toolong install_toolong
 	fi
 
+	install_navi() {
+		echo "==> Installing navi (not in apt)..."
+		# navi's release filenames embed the version, same as lazygit/pet
+		# above — look it up rather than guessing.
+		navi_url="$(curl -fsSL https://api.github.com/repos/denisidoro/navi/releases/latest |
+			grep -o "https://github.com/denisidoro/navi/releases/download/[^\"]*-${NAVI_TARGET}\.tar\.gz")"
+		if [ -n "$navi_url" ]; then
+			tmp="$(mktemp -d)"
+			curl -fsSL "$navi_url" | tar -xz -C "$tmp"
+			sudo install -m 755 "$(find "$tmp" -type f -name navi | head -1)" /usr/local/bin/navi
+			rm -rf "$tmp"
+		else
+			echo "!! Could not determine navi download URL, skipping"
+		fi
+	}
 	if sel navi && ! command -v navi &>/dev/null; then
 		if [ -n "$NAVI_TARGET" ]; then
-			echo "==> Installing navi (not in apt)..."
-			# navi's release filenames embed the version, same as lazygit/pet
-			# above — look it up rather than guessing.
-			navi_url="$(curl -fsSL https://api.github.com/repos/denisidoro/navi/releases/latest |
-				grep -o "https://github.com/denisidoro/navi/releases/download/[^\"]*-${NAVI_TARGET}\.tar\.gz")"
-			if [ -n "$navi_url" ]; then
-				tmp="$(mktemp -d)"
-				curl -fsSL "$navi_url" | tar -xz -C "$tmp"
-				sudo install -m 755 "$(find "$tmp" -type f -name navi | head -1)" /usr/local/bin/navi
-				rm -rf "$tmp"
-			else
-				echo "!! Could not determine navi download URL, skipping"
-			fi
+			step navi install_navi
 		else
 			echo "!! Skipping navi: unsupported architecture $(uname -m)"
 		fi
 	fi
 
+	install_nerd_font() {
+		echo "==> Installing JetBrains Mono Nerd Font (not in apt)..."
+		mkdir -p "$font_dir"
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip" -o "$tmp/font.zip"
+		unzip -q "$tmp/font.zip" -d "$font_dir"
+		rm -rf "$tmp"
+		fc-cache -f "$font_dir" || true
+	}
 	if sel nerd-font; then
 		font_dir="$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
 		if [ ! -d "$font_dir" ]; then
-			echo "==> Installing JetBrains Mono Nerd Font (not in apt)..."
-			mkdir -p "$font_dir"
-			tmp="$(mktemp -d)"
-			curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip" -o "$tmp/font.zip"
-			unzip -q "$tmp/font.zip" -d "$font_dir"
-			rm -rf "$tmp"
-			fc-cache -f "$font_dir" || true
+			step nerd-font install_nerd_font
 		fi
 	fi
 
@@ -842,18 +966,12 @@ link() {
 	echo "  linked $dest -> $src"
 }
 
-echo "==> Symlinking config files..."
-if sel tmux-config; then
+link_tmux_config() {
 	link "$DOTFILES_DIR/tmux/tmux.conf" "$HOME/.config/tmux/tmux.conf"
 	link "$DOTFILES_DIR/tmux/scripts" "$HOME/.config/tmux/scripts"
-fi
-sel yazi-config && link "$DOTFILES_DIR/yazi/keymap.toml" "$HOME/.config/yazi/keymap.toml"
-sel inputrc && link "$DOTFILES_DIR/readline/inputrc" "$HOME/.inputrc"
-sel eza-theme && link "$DOTFILES_DIR/eza/theme.yml" "$HOME/.config/eza/theme.yml"
-sel cheat && link "$DOTFILES_DIR/cheat/cheat" "$HOME/.local/bin/cheat"
-sel weather && link "$DOTFILES_DIR/weather/weather" "$HOME/.local/bin/weather"
+}
 
-if sel btop-theme; then
+link_btop_theme() {
 	link "$DOTFILES_DIR/btop/catppuccin_mocha.theme" "$HOME/.config/btop/themes/catppuccin_mocha.theme"
 	# btop.conf is a plain key=value file it regenerates with defaults for
 	# anything missing, so it's safe to just ensure this one line is set
@@ -866,12 +984,21 @@ if sel btop-theme; then
 	else
 		echo 'color_theme = "catppuccin_mocha"' >>"$btop_conf"
 	fi
-fi
+}
+
+echo "==> Symlinking config files..."
+if sel tmux-config; then step tmux-config link_tmux_config; fi
+if sel yazi-config; then step yazi-config link "$DOTFILES_DIR/yazi/keymap.toml" "$HOME/.config/yazi/keymap.toml"; fi
+if sel inputrc; then step inputrc link "$DOTFILES_DIR/readline/inputrc" "$HOME/.inputrc"; fi
+if sel eza-theme; then step eza-theme link "$DOTFILES_DIR/eza/theme.yml" "$HOME/.config/eza/theme.yml"; fi
+if sel cheat; then step cheat link "$DOTFILES_DIR/cheat/cheat" "$HOME/.local/bin/cheat"; fi
+if sel weather; then step weather link "$DOTFILES_DIR/weather/weather" "$HOME/.local/bin/weather"; fi
+if sel btop-theme; then step btop-theme link_btop_theme; fi
 
 # ---------------------------------------------------------------------------
 # 3. zsh: source our snippet from ~/.zshrc without touching the rest of it
 # ---------------------------------------------------------------------------
-if sel zshrc; then
+setup_zshrc() {
 	ZSHRC="$HOME/.zshrc"
 	SOURCE_LINE="[ -f \"$DOTFILES_DIR/zsh/zshrc.dotfiles\" ] && source \"$DOTFILES_DIR/zsh/zshrc.dotfiles\""
 	touch "$ZSHRC"
@@ -894,28 +1021,40 @@ if sel zshrc; then
 		} >>"$ZSHRC"
 		echo "==> Added dotfiles source line to $ZSHRC"
 	fi
-fi
+}
+if sel zshrc; then step zshrc setup_zshrc; fi
 
 # ---------------------------------------------------------------------------
 # 4. git
 # ---------------------------------------------------------------------------
-if sel git-editor; then
+set_git_editor() {
 	echo "==> Setting git core.editor..."
 	git config --global core.editor "micro"
-fi
+}
+if sel git-editor; then step git-editor set_git_editor; fi
 
 # ---------------------------------------------------------------------------
 # 5. tmux plugins (TPM)
 # ---------------------------------------------------------------------------
+install_tpm() {
+	echo "==> Installing TPM..."
+	git clone https://github.com/tmux-plugins/tpm "$TPM_DIR"
+}
+
+install_tmux_plugins() {
+	echo "==> Installing tmux plugins..."
+	TMUX_PLUGIN_MANAGER_PATH="$HOME/.config/tmux/plugins/" "$TPM_DIR/bin/install_plugins"
+}
+
 if sel tmux-plugins; then
 	TPM_DIR="$HOME/.config/tmux/plugins/tpm"
 	if [ ! -d "$TPM_DIR" ]; then
-		echo "==> Installing TPM..."
-		git clone https://github.com/tmux-plugins/tpm "$TPM_DIR"
+		step tpm install_tpm
 	fi
-
-	echo "==> Installing tmux plugins..."
-	TMUX_PLUGIN_MANAGER_PATH="$HOME/.config/tmux/plugins/" "$TPM_DIR/bin/install_plugins"
+	# Only worth attempting if the clone above actually landed.
+	if [ -d "$TPM_DIR" ]; then
+		step tmux-plugins install_tmux_plugins
+	fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -959,3 +1098,15 @@ cat <<'EOF'
     in the tmux status bar and prompt)
   - Start tmux and try: ` Space   (prefix + space opens the keybinding menu)
 EOF
+
+if [ -n "$FAILED_ITEMS" ]; then
+	echo ""
+	echo "!! These items did not install (everything else above did):"
+	for _f in $FAILED_ITEMS; do
+		echo "     - $_f"
+	done
+	echo ""
+	echo "   Scroll up for the error from each. Re-running ./install.sh retries"
+	echo "   just these — anything already installed is skipped."
+	exit 1
+fi
