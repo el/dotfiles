@@ -1,7 +1,9 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
 format = """
-[](red)\
+[](lavender)\
+$time\
+[](bg:red fg:lavender)\
 $os\
 $username\
 [](bg:peach fg:red)\
@@ -26,8 +28,6 @@ $conda\
 $cmd_duration\
 $line_break\
 $character"""
-
-right_format = """[](fg:lavender)$time[ ](fg:lavender)"""
 
 palette = 'catppuccin_mocha'
 
